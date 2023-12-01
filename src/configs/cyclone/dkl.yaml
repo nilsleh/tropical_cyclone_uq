@@ -1,0 +1,16 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.DKLRegression
+  feature_extractor:
+    _target_: timm.create_model
+    model_name: "resnet18"
+    num_classes: 1
+    in_chans: 3
+  gp_kernel: "RBF"
+  n_inducing_points: 300
+  optimizer:
+    _target_: torch.optim.Adam # can change optimizers here easily
+    _partial_: true
+    lr: 0.0001
+
+data:
+  batch_size: 64

@@ -1,0 +1,19 @@
+experiment:
+  experiment_name: "cyclone"
+  exp_dir: "/p/project/hai_uqmethodbox/experiment_output/tropical_bnn/"
+wandb:
+  project: tropical_cyclone
+  entity: uq-regression
+  mode: offline
+
+trainer:
+  _target_: lightning.pytorch.Trainer
+  accelerator: gpu
+  precision: 32
+  min_epochs: 1
+  max_epochs: 1
+  log_every_n_steps: 50
+  enable_progress_bar: True
+  limit_val_batches: 2
+  limit_test_batches: 2
+  limit_train_batches: 2
