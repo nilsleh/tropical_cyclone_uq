@@ -22,8 +22,8 @@ class TropicalCycloneTripletDataModule(NonGeoDataModule):
 
     input_mean = torch.Tensor([0.28154722, 0.28071895, 0.27990073])
     input_std = torch.Tensor([0.23435517, 0.23392765, 0.23351675])
-    target_mean = torch.Tensor([50.54925])
-    target_std = torch.Tensor([26.836512])
+    # target_mean = torch.Tensor([50.54925])
+    # target_std = torch.Tensor([26.836512])
 
     def __init__(
         self, batch_size: int = 64, num_workers: int = 0, **kwargs: Any
@@ -38,6 +38,11 @@ class TropicalCycloneTripletDataModule(NonGeoDataModule):
         """
         super().__init__(TropicalCycloneTriplet, batch_size, num_workers, **kwargs)
 
+        self.dataset = TropicalCycloneTriplet(split="train", **self.kwargs)
+        # mean and std can change based on setup because min wind speed is a variable
+        self.target_mean = torch.Tensor([self.dataset.target_mean])
+        self.target_std = torch.Tensor([self.dataset.target_std])
+        
         self.train_aug = AugmentationSequential(
             K.Normalize(mean=self.mean, std=self.std),
             K.Normalize(mean=self.input_mean, std=self.input_std),

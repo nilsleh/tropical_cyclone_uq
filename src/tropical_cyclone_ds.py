@@ -70,6 +70,9 @@ class TropicalCycloneTriplet(TropicalCyclone):
 
         df = df[df["wind_speed"] >= self.min_wind_speed]
 
+        self.target_mean = df["wind_speed"].mean()
+        self.target_std = df["wind_speed"].std()
+
         def get_subsequences(df: pd.DataFrame, k: int) -> list[dict[str, list[int]]]:
             """Generate all possible subsequences of length k for a given group.
 
@@ -216,3 +219,5 @@ class TropicalCycloneTriplet(TropicalCyclone):
             plt.suptitle(suptitle)
 
         return fig
+
+ds = TropicalCycloneTriplet(root="/p/project/hai_uqmethodbox/data/tropical_cyclone", split="train", min_wind_speed=0.0, seq_len=3)
