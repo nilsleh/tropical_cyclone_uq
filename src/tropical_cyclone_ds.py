@@ -1,6 +1,7 @@
 """Tropical Cyclone Triplet Dataset."""
 
 import os
+import json
 from functools import lru_cache
 from typing import Any, Optional
 
@@ -12,6 +13,9 @@ from matplotlib.figure import Figure
 from PIL import Image
 from torch import Tensor
 from torchgeo.datasets import TropicalCyclone
+from concurrent.futures import ProcessPoolExecutor
+
+from multiprocessing import Pool
 
 
 class TropicalCycloneTriplet(TropicalCyclone):
@@ -21,6 +25,7 @@ class TropicalCycloneTriplet(TropicalCyclone):
         self,
         root: str = "data",
         split: str = "train",
+        min_wind_spedd: float = 0.0,
         download: bool = False,
         api_key: Optional[str] = None,
         checksum: bool = False,
@@ -30,6 +35,7 @@ class TropicalCycloneTriplet(TropicalCyclone):
         Args:
             root: root directory where dataset can be found
             split: one of "train" or "test"
+            minimum_wind_speed: minimum wind speed to include in dataset
             transforms: a function/transform that takes input sample and its target as
                 entry and returns a transformed version
             download: if True, download dataset and store it in the root directory
@@ -41,6 +47,8 @@ class TropicalCycloneTriplet(TropicalCyclone):
             RuntimeError: if ``download=False`` but dataset is missing or checksum fails
         """
         super().__init__(root, split, None, download, api_key, checksum)
+        self.min_wind_speed = min_wind_spedd
+
         self.triplet_df = self.construct_triplets(self.collection)
 
     def construct_triplets(self, collection: list[dict[str, str]]) -> list[list[str]]:
@@ -52,28 +60,36 @@ class TropicalCycloneTriplet(TropicalCyclone):
         Returns:
             collection as triplets
         """
-        df = pd.DataFrame(collection)
-        df["storm_id"] = (
-            df["href"].str.split("/", expand=True)[0].str.split("_", expand=True)[6]
-        )
+        df = pd.read_csv(os.path.join(self.root, f"{self.split}_info.csv"))
+        df_two = pd.DataFrame(collection)
         df["seq_id"] = (
-            df["href"]
+            df["path"]
             .str.split("/", expand=True)[0]
             .str.split("_", expand=True)[7]
             .astype(int)
         )
 
+        df = df[df["wind_speed"] >= self.min_wind_speed]
+
         def find_consecutive_triplets(group):
+            group = group.sort_values("seq_id")
             triplets = []
             for i in range(len(group) - 2):
                 if (
-                    group.iloc[i + 1, 3] == group.iloc[i, 3] + 1
-                    and group.iloc[i + 2, 3] == group.iloc[i, 3] + 2
+                    group.iloc[i + 1]["seq_id"] - group.iloc[i]["seq_id"] == 1
+                    and group.iloc[i + 2]["seq_id"] - group.iloc[i + 1]["seq_id"] == 1
                 ):
                     triplets.append(
-                        (group.iloc[i, 3], group.iloc[i + 1, 3], group.iloc[i + 2, 3])
+                        (
+                            group.iloc[i]["seq_id"],
+                            group.iloc[i + 1]["seq_id"],
+                            group.iloc[i + 2]["seq_id"],
+                        )
                     )
-            return {"storm_id": group.iloc[0, 2], "triplet": triplets}
+            return {
+                "storm_id": group.iloc[0, group.columns.get_loc("storm_id")],
+                "triplet": triplets,
+            }
 
         # Group by 'object_id' and find consecutive triplets for each group
         cons_trip = df.groupby("storm_id").apply(find_consecutive_triplets).tolist()
@@ -112,6 +128,10 @@ class TropicalCycloneTriplet(TropicalCyclone):
         sample: dict[str, Any] = {"input": torch.stack(imgs, 0)}
         sample.update(self._load_features(directory))
         sample["target"] = sample["label"].unsqueeze(-1)
+
+        # already stored under "target"
+        del sample["label"]
+        del sample["wind_speed"]
 
         if self.transforms is not None:
             sample = self.transforms(sample)
