@@ -5,11 +5,14 @@ import torch
 
 from hydra.utils import instantiate
 from lightning import Trainer
-from lightning.pytorch.callbacks import (EarlyStopping, LearningRateMonitor,
-                                         ModelCheckpoint)
+from lightning.pytorch.callbacks import (
+    EarlyStopping,
+    LearningRateMonitor,
+    ModelCheckpoint,
+)
 from lightning.pytorch.loggers import CSVLogger, WandbLogger  # noqa: F401
 from omegaconf import OmegaConf
-from tropical_cyclone_dm import TropicalCycloneTripletDataModule
+from tropical_cyclone_dm import TropicalCycloneSequenceDataModule
 
 
 def create_experiment_dir(config: dict[str, Any]) -> str:
@@ -85,7 +88,6 @@ if __name__ == "__main__":
     full_config = OmegaConf.merge(data_conf, trainer_conf, model_conf)
     full_config = create_experiment_dir(full_config)
 
-
     datamodule = instantiate(full_config.datamodule)
     model = instantiate(full_config.uq_method)
     trainer = generate_trainer(full_config)
@@ -96,7 +98,6 @@ if __name__ == "__main__":
         trainer.test(ckpt_path="best", datamodule=datamodule)
     else:
         trainer.test(model, datamodule=datamodule)
-
 
     target_mean = datamodule.target_mean.cpu()
     target_std = datamodule.target_std.cpu()
@@ -111,7 +112,7 @@ if __name__ == "__main__":
         targets = torch.stack(labels)
         return {
             "input": datamodule.aug({"image": inputs.float()})["image"],
-            "target": (targets[...,-1:].float() - target_mean) / target_std,
+            "target": (targets[..., -1:].float() - target_mean) / target_std,
         }
 
     model.pred_file_name = "predictions_train.csv"

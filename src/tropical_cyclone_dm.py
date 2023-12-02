@@ -10,10 +10,10 @@ from torchgeo.datamodules import NonGeoDataModule
 from torchgeo.datamodules.utils import group_shuffle_split
 from torchgeo.transforms import AugmentationSequential
 
-from tropical_cyclone_ds import TropicalCycloneTriplet
+from tropical_cyclone_ds import TropicalCycloneSequence
 
 
-class TropicalCycloneTripletDataModule(NonGeoDataModule):
+class TropicalCycloneSequenceDataModule(NonGeoDataModule):
     """LightningDataModule implementation for the NASA Cyclone dataset.
 
     Implements 80/20 train/val splits based on hurricane storm ids.
@@ -36,9 +36,9 @@ class TropicalCycloneTripletDataModule(NonGeoDataModule):
             **kwargs: Additional keyword arguments passed to
                 :class:`~tropical_cyclone_uq.datasets.TropicalCyclone`.
         """
-        super().__init__(TropicalCycloneTriplet, batch_size, num_workers, **kwargs)
+        super().__init__(TropicalCycloneSequence, batch_size, num_workers, **kwargs)
 
-        self.dataset = TropicalCycloneTriplet(split="train", **self.kwargs)
+        self.dataset = TropicalCycloneSequence(split="train", **self.kwargs)
         # mean and std can change based on setup because min wind speed is a variable
         self.target_mean = torch.Tensor([self.dataset.target_mean])
         self.target_std = torch.Tensor([self.dataset.target_std])
@@ -68,15 +68,15 @@ class TropicalCycloneTripletDataModule(NonGeoDataModule):
             stage: Either 'fit', 'validate', 'test', or 'predict'.
         """
         if stage in ["fit", "validate"]:
-            self.dataset = TropicalCycloneTriplet(split="train", **self.kwargs)
+            self.dataset = TropicalCycloneSequence(split="train", **self.kwargs)
             train_indices, val_indices = group_shuffle_split(
-                self.dataset.triplet_df.storm_id, test_size=0.15, random_state=0
+                self.dataset.sequence_df.storm_id, test_size=0.15, random_state=0
             )
 
             self.train_dataset = Subset(self.dataset, train_indices)
             self.val_dataset = Subset(self.dataset, val_indices)
         if stage in ["test"]:
-            self.test_dataset = TropicalCycloneTriplet(split="test", **self.kwargs)
+            self.test_dataset = TropicalCycloneSequence(split="test", **self.kwargs)
 
     def on_after_batch_transfer(
         self, batch: Dict[str, Tensor], dataloader_idx: int

@@ -22,12 +22,14 @@ if __name__ == "__main__":
         "dkl.yaml",
         "due.yaml",
         "quantile_regression.yaml",
-        "mve.yaml"
+        "mve.yaml",
     ]
     CONF_BASE_DIR = f"/p/project/hai_uqmethodbox/{args.user}/tropical_cyclone_uq/src/configs/cyclone"
     SEEDS = [0]
 
-    for idx, (seed, conf_name) in enumerate(itertools.product(SEEDS, MODEL_CONF_FILE_NAMES)):
+    for idx, (seed, conf_name) in enumerate(
+        itertools.product(SEEDS, MODEL_CONF_FILE_NAMES)
+    ):
         model_config_file = os.path.join(CONF_BASE_DIR, conf_name)
         data_config_file = os.path.join(CONF_BASE_DIR, "dataset.yaml")
         trainer_config_file = os.path.join(CONF_BASE_DIR, "trainer.yaml")

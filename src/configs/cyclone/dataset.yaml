@@ -1,5 +1,6 @@
 datamodule:
-  _target_: tropical_cyclone_dm.TropicalCycloneTripletDataModule
+  _target_: tropical_cyclone_dm.TropicalCycloneSequenceDataModule
   root: "/p/project/hai_uqmethodbox/data/tropical_cyclone"
   batch_size: 256
-  num_workers: 0
+  num_workers: 12
+  min_wind_speed: 50

@@ -15,8 +15,8 @@ from torch import Tensor
 from torchgeo.datasets import TropicalCyclone
 
 
-class TropicalCycloneTriplet(TropicalCyclone):
-    """Tropical Cyclone Dataset adopted for loading triplets."""
+class TropicalCycloneSequence(TropicalCyclone):
+    """Tropical Cyclone Dataset adopted for loading sequences."""
 
     def __init__(
         self,
@@ -48,7 +48,7 @@ class TropicalCycloneTriplet(TropicalCyclone):
         self.min_wind_speed = min_wind_speed
         self.seq_len = seq_len
 
-        self.triplet_df = self.construct_triplets(self.collection)
+        self.sequence_df = self.construct_triplets(self.collection)
 
     def construct_triplets(self, collection: list[dict[str, str]]) -> list[list[str]]:
         """Construct triplet collection for data loading.
@@ -60,16 +60,15 @@ class TropicalCycloneTriplet(TropicalCyclone):
             collection as triplets
         """
         df = pd.read_csv(os.path.join(self.root, f"{self.split}_info.csv"))
-        df_two = pd.DataFrame(collection)
+
+        df = df[df["wind_speed"] >= self.min_wind_speed]
+
         df["seq_id"] = (
             df["path"]
             .str.split("/", expand=True)[0]
             .str.split("_", expand=True)[7]
             .astype(int)
         )
-
-        df = df[df["wind_speed"] >= self.min_wind_speed]
-
         self.target_mean = df["wind_speed"].mean()
         self.target_std = df["wind_speed"].std()
 
@@ -83,10 +82,12 @@ class TropicalCycloneTriplet(TropicalCyclone):
             Returns:
                 list of all possible subsequences of length k for a given typhoon id
             """
-            # generate possible subsquences of length k for each group
+            min_seq_id = df["seq_id"].min()
+            max_seq_id = df["seq_id"].max()
+            # generate possible subsquences of length k for the group
             subsequences = [
                 list(range(i, i + k))
-                for i in range(len(df) - k + 1)
+                for i in range(min_seq_id, max_seq_id - k + 2)
             ]
             filtered_subsequences = [
                 subseq
@@ -99,9 +100,11 @@ class TropicalCycloneTriplet(TropicalCyclone):
             }
 
         # Group by 'object_id' and find consecutive triplets for each group
-        cons_trip = df.groupby("storm_id").apply(get_subsequences, k=self.seq_len).tolist()
-        triplet_df = pd.DataFrame(cons_trip).explode("subsequences")
-        return triplet_df
+        cons_sequences = df.groupby("storm_id").apply(get_subsequences, k=self.seq_len).tolist()
+        # dropna the empty sequences
+        sequence_df = pd.DataFrame(cons_sequences).explode("subsequences").reset_index(drop=True).dropna()
+
+        return sequence_df
 
     def __getitem__(self, index: int) -> dict[str, Any]:
         """Return an index within the dataset.
@@ -110,10 +113,10 @@ class TropicalCycloneTriplet(TropicalCyclone):
             index: index to return
 
         Returns:
-            data, labels, field import pdb
+            data, labels
         """
-        storm_id = self.triplet_df.iloc[index].storm_id
-        subsequence = self.triplet_df.iloc[index].subsequences
+        storm_id = self.sequence_df.iloc[index].storm_id
+        subsequence = self.sequence_df.iloc[index].subsequences
 
         imgs: list[Tensor] = []
         for time_idx in subsequence:
@@ -219,5 +222,3 @@ class TropicalCycloneTriplet(TropicalCyclone):
             plt.suptitle(suptitle)
 
         return fig
-
-ds = TropicalCycloneTriplet(root="/p/project/hai_uqmethodbox/data/tropical_cyclone", split="train", min_wind_speed=0.0, seq_len=3)
