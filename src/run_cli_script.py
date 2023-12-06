@@ -114,17 +114,21 @@ if __name__ == "__main__":
             "target": (targets[..., -1:].float() - target_mean) / target_std,
         }
 
-    model.pred_file_name = "predictions_train.csv"
+    model.pred_file_name = "preds_train.csv"
     datamodule.setup("fit")
     train_loader = datamodule.train_dataloader()
     train_loader.shuffle = False
     train_loader.collate_fn = train_collate
+
     try:
         trainer.test(ckpt_path="best", dataloaders=train_loader)
     except:
         trainer.test(model, dataloaders=train_loader)
-
+    
+    # save configuration file
     with open(
         os.path.join(full_config["experiment"]["save_dir"], "config.yaml"), "w"
     ) as f:
         OmegaConf.save(config=full_config, f=f)
+
+    print("FINISHED EXPERIMENT", flush=True)
