@@ -12,7 +12,6 @@ from lightning.pytorch.callbacks import (
 )
 from lightning.pytorch.loggers import CSVLogger, WandbLogger  # noqa: F401
 from omegaconf import OmegaConf
-from tropical_cyclone_dm import TropicalCycloneSequenceDataModule
 
 
 def create_experiment_dir(config: dict[str, Any]) -> str:

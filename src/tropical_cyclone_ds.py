@@ -181,7 +181,7 @@ class TropicalCycloneSequence(TropicalCyclone):
         Returns:
             length of the dataset
         """
-        return len(self.triplet_df)
+        return len(self.sequence_df)
 
     def plot(
         self,
