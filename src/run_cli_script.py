@@ -41,15 +41,14 @@ def generate_trainer(config: dict[str, Any]) -> Trainer:
     """Generate a pytorch lightning trainer."""
     loggers = [
         CSVLogger(config["experiment"]["save_dir"], name="csv_logs"),
-        # WandbLogger(
-        #     name=config["experiment"]["experiment_name"],
-        #     save_dir=config["experiment"]["save_dir"],
-        #     project=config["wandb"]["project"],
-        #     entity=config["wandb"]["entity"],
-        #     resume="allow",
-        #     config=config,
-        #     mode=config["wandb"].get("mode", "online"),
-        # ),
+        WandbLogger(
+            name=config["experiment"]["experiment_name"],
+            save_dir=config["experiment"]["save_dir"],
+            project=config["wandb"]["project"],
+            entity=config["wandb"]["entity"],
+            resume="allow",
+            mode="offline",
+        ),
     ]
 
     track_metric = "val_loss"
