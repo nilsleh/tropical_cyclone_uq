@@ -121,6 +121,11 @@ if __name__ == "__main__":
     train_loader.shuffle = False
     train_loader.collate_fn = train_collate
     try:
-        trainer.test(model, dataloaders=train_loader)
-    except:
         trainer.test(ckpt_path="best", dataloaders=train_loader)
+    except:
+        trainer.test(model, dataloaders=train_loader)
+
+    with open(
+        os.path.join(full_config["experiment"]["save_dir"], "config.yaml"), "w"
+    ) as f:
+        OmegaConf.save(config=full_config, f=f)
