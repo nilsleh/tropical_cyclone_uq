@@ -25,18 +25,24 @@ class TropicalCycloneSequenceDataModule(NonGeoDataModule):
     # target_mean = torch.Tensor([50.54925])
     # target_std = torch.Tensor([26.836512])
 
+    valid_tasks = ["regression", "classification"]
+
     def __init__(
-        self, batch_size: int = 64, num_workers: int = 0, **kwargs: Any
+        self, task: str = "regression", batch_size: int = 64, num_workers: int = 0, **kwargs: Any
     ) -> None:
         """Initialize a new TropicalCycloneDataModule instance.
 
         Args:
+            task: One of "regression" or "classification"
             batch_size: Size of each mini-batch.
             num_workers: Number of workers for parallel data loading.
             **kwargs: Additional keyword arguments passed to
                 :class:`~tropical_cyclone_uq.datasets.TropicalCyclone`.
         """
         super().__init__(TropicalCycloneSequence, batch_size, num_workers, **kwargs)
+
+        assert task in self.valid_tasks, f"invalid task '{task}', please choose one of {self.valid_tasks}"
+        self.task = task
 
         self.dataset = TropicalCycloneSequence(split="train", **self.kwargs)
         # mean and std can change based on setup because min wind speed is a variable
@@ -68,7 +74,7 @@ class TropicalCycloneSequenceDataModule(NonGeoDataModule):
             stage: Either 'fit', 'validate', 'test', or 'predict'.
         """
         if stage in ["fit", "validate"]:
-            self.dataset = TropicalCycloneSequence(split="train", **self.kwargs)
+            self.dataset = TropicalCycloneSequence(split="train", task=self.task, **self.kwargs)
             train_indices, val_indices = group_shuffle_split(
                 self.dataset.sequence_df.storm_id, test_size=0.15, random_state=0
             )
@@ -76,7 +82,7 @@ class TropicalCycloneSequenceDataModule(NonGeoDataModule):
             self.train_dataset = Subset(self.dataset, train_indices)
             self.val_dataset = Subset(self.dataset, val_indices)
         if stage in ["test"]:
-            self.test_dataset = TropicalCycloneSequence(split="test", **self.kwargs)
+            self.test_dataset = TropicalCycloneSequence(split="test", task=self.task, **self.kwargs)
 
     def on_after_batch_transfer(
         self, batch: Dict[str, Tensor], dataloader_idx: int
@@ -97,8 +103,15 @@ class TropicalCycloneSequenceDataModule(NonGeoDataModule):
             elif self.target_mean.device.type == "cuda":
                 batch["input"] = batch["input"].to(self.target_mean.device)
                 batch["target"] = batch["target"].to(self.target_mean.device)
-        new_batch = {
-            "input": self.aug({"image": batch["input"].float()})["image"],
-            "target": (batch["target"].float() - self.target_mean) / self.target_std,
-        }
+
+        if self.task == "regression":
+            new_batch = {
+                "input": self.aug({"image": batch["input"].float()})["image"],
+                "target": (batch["target"].float() - self.target_mean) / self.target_std,
+            }
+        else:
+            new_batch = {
+                "input": self.aug({"image": batch["input"].float()})["image"],
+                "target": batch["target"].long(),
+            }
         return new_batch

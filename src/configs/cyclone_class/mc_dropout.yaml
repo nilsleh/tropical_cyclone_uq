@@ -1,0 +1,16 @@
+# everything to configure the UQ method
+uq_method:
+  _target_: lightning_uq_box.uq_methods.MCDropoutClassification
+  model:
+    _target_: timm.create_model
+    model_name: resnet18
+    in_chans: 3
+    num_classes: 6
+    drop_rate: 0.15
+  loss_fn: 
+    _target_: torch.nn.CrossEntropyLoss
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: True
+    lr: 0.003
+  num_mc_samples: 30

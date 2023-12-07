@@ -18,11 +18,25 @@ from torchgeo.datasets import TropicalCyclone
 class TropicalCycloneSequence(TropicalCyclone):
     """Tropical Cyclone Dataset adopted for loading sequences."""
 
+    valid_tasks = ["regression", "classification"]
+
+    # based on https://www.nhc.noaa.gov/climo/?text
+    class_bins = {
+        "tropical_depression": (0, 33),
+        "tropical_storm": (34, 63),
+        "hurr_1": (64, 82),
+        "hurr_2": (83, 95),
+        "hurr_3": (96, 112),
+        "hurr_4": (113, 136),
+        "hurr_5": (137, np.inf),
+    }
+
     def __init__(
         self,
         root: str = "data",
         split: str = "train",
         min_wind_speed: float = 0.0,
+        task: str = "regression",
         seq_len: int = 3,
         download: bool = False,
         api_key: Optional[str] = None,
@@ -34,6 +48,7 @@ class TropicalCycloneSequence(TropicalCyclone):
             root: root directory where dataset can be found
             split: one of "train" or "test"
             min_wind_speed: minimum wind speed to include in dataset
+            task: one of "regression" or "classification"
             transforms: a function/transform that takes input sample and its target as
                 entry and returns a transformed version
             download: if True, download dataset and store it in the root directory
@@ -45,23 +60,41 @@ class TropicalCycloneSequence(TropicalCyclone):
             RuntimeError: if ``download=False`` but dataset is missing or checksum fails
         """
         super().__init__(root, split, None, download, api_key, checksum)
+
+        assert task in self.valid_tasks, f"invalid task '{task}', please choose one of {self.valid_tasks}"
+        self.task = task
         self.min_wind_speed = min_wind_speed
         self.seq_len = seq_len
 
-        self.sequence_df = self.construct_triplets(self.collection)
+        self.sequence_df = self.construct_sequences()
 
-    def construct_triplets(self, collection: list[dict[str, str]]) -> list[list[str]]:
-        """Construct triplet collection for data loading.
+        print(0)
 
-        Args:
-            collection: dataset collection for the spli
+    def construct_sequences(self) -> list[list[str]]:
+        """Construct sequence collection for data loading.
 
         Returns:
-            collection as triplets
+            collection as sequences
         """
         df = pd.read_csv(os.path.join(self.root, f"{self.split}_info.csv"))
 
         df = df[df["wind_speed"] >= self.min_wind_speed]
+
+        # setup df for possible classification task
+        filtered_class_bins = {k: v for k, v in self.class_bins.items() if v[1] > self.min_wind_speed}
+        filtered_class_bins = dict(sorted(filtered_class_bins.items(), key=lambda item: item[1][0]))
+        
+        def assign_class(wind_speed):
+            """Assign class index to wind speed."""
+            for i, (class_name, (min_speed, max_speed)) in enumerate(filtered_class_bins.items()):
+                # if wind_speed is within the range of the class, return the class index
+                if min_speed <= wind_speed <= max_speed:
+                    return i
+            return len(filtered_class_bins) - 1
+
+        df['class_index'] = df['wind_speed'].apply(assign_class)
+
+        self.class_to_name = {i: class_name for i, class_name in enumerate(filtered_class_bins.keys())}
 
         df["seq_id"] = (
             df["path"]
@@ -89,20 +122,35 @@ class TropicalCycloneSequence(TropicalCyclone):
                 list(range(i, i + k))
                 for i in range(min_seq_id, max_seq_id - k + 2)
             ]
-            filtered_subsequences = [
+            filtered_subsequences: list[list[int]] = [
                 subseq
                 for subseq in subsequences
                 if set(subseq).issubset(df["seq_id"])
             ]
+
+            wind_speeds = [
+                df.loc[df["seq_id"] == subseq[-1], "wind_speed"].values[0]
+                for subseq in filtered_subsequences
+                if subseq
+            ]
+
+            class_labels = [
+                df.loc[df["seq_id"] == subseq[-1], "class_index"].values[0]
+                for subseq in filtered_subsequences
+                if subseq
+            ]
+
             return {
                 "storm_id": df["storm_id"].iloc[0],
                 "subsequences": filtered_subsequences,
+                "wind_speed": wind_speeds,
+                "class_label": class_labels,
             }
 
         # Group by 'object_id' and find consecutive triplets for each group
         cons_sequences = df.groupby("storm_id").apply(get_subsequences, k=self.seq_len).tolist()
         # dropna the empty sequences
-        sequence_df = pd.DataFrame(cons_sequences).explode("subsequences").reset_index(drop=True).dropna()
+        sequence_df = pd.DataFrame(cons_sequences).explode(["subsequences", "wind_speed", "class_label"]).reset_index(drop=True).dropna()
 
         return sequence_df
 
@@ -137,7 +185,11 @@ class TropicalCycloneSequence(TropicalCyclone):
 
         sample: dict[str, Any] = {"input": torch.stack(imgs, 0)}
         sample.update(self._load_features(directory))
-        sample["target"] = sample["label"].unsqueeze(-1)
+     
+        if self.task == "classification":
+            sample["target"] = torch.tensor(int(self.sequence_df.iloc[index].class_label)).squeeze().long()
+        else:
+            sample["target"] = torch.tensor(int(self.sequence_df.iloc[index].wind_speed)).float().unsqueeze(-1)
 
         # already stored under "target"
         del sample["label"]

@@ -108,10 +108,16 @@ if __name__ == "__main__":
 
         inputs = torch.stack(images)
         targets = torch.stack(labels)
-        return {
-            "input": datamodule.aug({"image": inputs.float()})["image"],
-            "target": (targets[..., -1:].float() - target_mean) / target_std,
-        }
+        if datamodule.task == "regression":
+            return {
+                "input": datamodule.aug({"image": inputs.float()})["image"],
+                "target": (targets[..., -1:].float() - target_mean) / target_std,
+            }
+        else:
+            return {
+                "input": datamodule.aug({"image": inputs.float()})["image"],
+                "target": targets.squeeze().long(),
+            }
 
     model.pred_file_name = "preds_train.csv"
     datamodule.setup("fit")

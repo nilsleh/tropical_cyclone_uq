@@ -12,27 +12,35 @@ if __name__ == "__main__":
         "--user", help="Name of user", type=str, required=True, choices=["nina", "nils"]
     )
 
+    parser.add_argument(
+        "--task", help="Task to run", type=str, required=True, choices=["classification", "regression"]
+    )
+
     args = parser.parse_args()
 
     GPUS = [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2]
     MODEL_CONF_FILE_NAMES = [
+        "base_model.yaml",
+        # "quantile_regression.yaml",
+        # "mve.yaml",
+        # "der.yaml",
         "mc_dropout.yaml",
         "bnn_elbo.yaml",
-        "der.yaml",
         "dkl.yaml",
         "due.yaml",
-        "quantile_regression.yaml",
-        "mve.yaml",
     ]
-    CONF_BASE_DIR = f"/p/project/hai_uqmethodbox/{args.user}/tropical_cyclone_uq/src/configs/cyclone"
+    if args.task == "classification":
+        CONF_BASE_DIR = f"/p/project/hai_uqmethodbox/{args.user}/tropical_cyclone_uq/src/configs/cyclone_class"
+    else:
+        CONF_BASE_DIR = f"/p/project/hai_uqmethodbox/{args.user}/tropical_cyclone_uq/src/configs/cyclone_reg"
     SEEDS = [0]
 
     for idx, (seed, conf_name) in enumerate(
         itertools.product(SEEDS, MODEL_CONF_FILE_NAMES)
     ):
-        model_config_file = os.path.join(CONF_BASE_DIR, conf_name)
-        data_config_file = os.path.join(CONF_BASE_DIR, "dataset.yaml")
-        trainer_config_file = os.path.join(CONF_BASE_DIR, "trainer.yaml")
+        model_config_file = os.path.relpath(os.path.join(CONF_BASE_DIR, conf_name))
+        data_config_file = os.path.relpath(os.path.join(CONF_BASE_DIR, "dataset.yaml"))
+        trainer_config_file = os.path.relpath(os.path.join(CONF_BASE_DIR, "trainer.yaml"))
         command = (
             "python run_cli_script.py"
             + f" model_config={model_config_file}"
