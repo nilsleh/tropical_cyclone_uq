@@ -15,4 +15,4 @@ uq_method:
   num_classes: 6 # number of target classes
 
 datamodule:
-  batch_size: 64
+  batch_size: 32

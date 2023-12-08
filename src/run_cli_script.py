@@ -100,8 +100,9 @@ if __name__ == "__main__":
     target_mean = datamodule.target_mean.cpu()
     target_std = datamodule.target_std.cpu()
 
+
     # Also store predictions for training
-    def train_collate(batch: list[dict[str, torch.Tensor]]):
+    def collate(batch: list[dict[str, torch.Tensor]]):
         """Collate fn to include augmentations."""
         images = [item["input"] for item in batch]
         labels = [item["target"] for item in batch]
@@ -119,17 +120,29 @@ if __name__ == "__main__":
                 "target": targets.squeeze().long(),
             }
 
+    # train dataset results
     model.pred_file_name = "preds_train.csv"
     datamodule.setup("fit")
     train_loader = datamodule.train_dataloader()
     train_loader.shuffle = False
-    train_loader.collate_fn = train_collate
+    train_loader.collate_fn = collate
 
     try:
         trainer.test(ckpt_path="best", dataloaders=train_loader)
     except:
         trainer.test(model, dataloaders=train_loader)
-    
+
+    # val dataset results
+    model.pred_file_name = "preds_val.csv"
+    val_loader = datamodule.val_dataloader()
+    val_loader.shuffle = False
+    val_loader.collate_fn = collate
+
+    try:
+        trainer.test(ckpt_path="best", dataloaders=val_loader)
+    except:
+        trainer.test(model, dataloaders=val_loader)
+
     # save configuration file
     with open(
         os.path.join(full_config["experiment"]["save_dir"], "config.yaml"), "w"
