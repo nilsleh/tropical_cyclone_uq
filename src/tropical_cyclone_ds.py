@@ -68,7 +68,7 @@ class TropicalCycloneSequence(TropicalCyclone):
 
         self.sequence_df = self.construct_sequences()
 
-        print(0)
+        print(f"Num samples: {len(self.sequence_df)}")
 
     def construct_sequences(self) -> list[list[str]]:
         """Construct sequence collection for data loading.

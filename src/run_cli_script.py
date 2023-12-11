@@ -10,6 +10,7 @@ from lightning.pytorch.callbacks import (
     LearningRateMonitor,
     ModelCheckpoint,
 )
+from omegaconf.errors import ConfigAttributeError
 from lightning.pytorch.loggers import CSVLogger, WandbLogger  # noqa: F401
 from omegaconf import OmegaConf
 
@@ -87,7 +88,31 @@ if __name__ == "__main__":
     full_config = create_experiment_dir(full_config)
 
     datamodule = instantiate(full_config.datamodule)
-    model = instantiate(full_config.uq_method)
+
+    # 
+    # need to load imagenet weights manually because node does not have internet access
+    try:
+        model = instantiate(full_config.uq_method.model, pretrained=False, num_classes=1000)
+        num_classes = full_config.uq_method.model.num_classes
+    except ConfigAttributeError:
+        model = instantiate(full_config.uq_method.feature_extractor, pretrained=False, num_classes=1000)
+        num_classes = full_config.uq_method.feature_extractor.num_classes
+
+    prev_conv1 = model.conv1.weight.data.clone()
+    model.load_state_dict(torch.load(full_config.resnet_ckpt))
+    print(f"Weights are loaded if the first layer is not equal anymore, so torch equal should be False, got: {torch.equal(prev_conv1, model.conv1.weight.data)}")
+    # replace last layer
+    model.fc = torch.nn.Linear(
+        in_features=model.fc.in_features,
+        out_features=num_classes,
+        bias=True,
+    )
+
+    try:
+        model = instantiate(full_config.uq_method, model=model)
+    except:
+        model = instantiate(full_config.uq_method, feature_extractor=model)
+
     trainer = generate_trainer(full_config)
 
     # laplace only uses test

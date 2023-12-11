@@ -14,3 +14,4 @@ trainer:
   log_every_n_steps: 20
   enable_progress_bar: True
 
+resnet_ckpt: /p/project/hai_uqmethodbox/nils/old/lightning-uq-box/experiments/image-regression/configs/tropical_cyclone/resnet18.ckpt
