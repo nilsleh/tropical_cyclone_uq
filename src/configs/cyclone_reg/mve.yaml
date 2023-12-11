@@ -6,3 +6,11 @@ uq_method:
     in_chans: 3
     num_classes: 2
   burnin_epochs: 0
+  optimizer:
+    _target_: torch.optim.Adam # can change optimizers here easily
+    _partial_: true
+    lr: 0.001
+  lr_scheduler:
+    _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+    _partial_: true
+    T_max: 100

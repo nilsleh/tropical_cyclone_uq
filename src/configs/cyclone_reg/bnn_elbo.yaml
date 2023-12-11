@@ -6,7 +6,7 @@ uq_method:
     in_chans: 3
     num_classes: 1
   criterion:
-    _target_: torch.nn.CrossEntropyLoss
+    _target_: torch.nn.MSELoss
   num_mc_samples_train: 5
   num_mc_samples_test: 30
   prior_mu: 0.0
@@ -24,3 +24,7 @@ uq_method:
     _target_: torch.optim.Adam # can change optimizers here easily
     _partial_: true
     lr: 0.001
+  lr_scheduler:
+    _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+    _partial_: true
+    T_max: 100

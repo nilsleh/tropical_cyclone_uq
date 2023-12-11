@@ -3,7 +3,7 @@ uq_method:
   feature_extractor:
     _target_: timm.create_model
     model_name: "resnet18"
-    num_classes: 1
+    num_classes: 10
     in_chans: 3
   gp_kernel: "RBF"
   n_inducing_points: 300

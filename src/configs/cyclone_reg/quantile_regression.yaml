@@ -5,6 +5,7 @@ uq_method:
     model_name: resnet18
     in_chans: 3
     num_classes: 3
+  _partial_: true
   loss_fn: 
     _target_: lightning_uq_box.uq_methods.QuantileLoss
     quantiles:
