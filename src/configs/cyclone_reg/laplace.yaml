@@ -1,0 +1,25 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.LaplaceRegression
+  laplace_model:
+    _target_: laplace.Laplace
+    model:
+      _target_: lightning_uq_box.uq_methods.utils.checkpoint_loader
+      model_class:
+        _target_: lightning_uq_box.uq_methods.DeterministicRegression
+        model:
+          _target_: timm.create_model
+          model_name: resnet18
+          in_chans: 3
+          num_classes: 1
+        loss_fn:
+          _target_: torch.nn.MSELoss
+      ckpt_path: /p/project/hai_uqmethodbox/experiment_output/keep_reg/cyclone_DeterministicRegression_12-13-2023_13-37-13-856844/epoch=7-step=1224.ckpt
+      return_model: True
+    likelihood: "regression"
+    sigma_noise: 1.0
+    prior_precision: 1.0
+    prior_mean: 0.0
+    temperature: 1.0
+    subset_of_weights: "last_layer"
+    hessian_structure: "kron"
+  

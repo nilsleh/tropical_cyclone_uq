@@ -4,6 +4,7 @@ from typing import Any
 import torch
 
 from hydra.utils import instantiate
+from hydra.errors import InstantiationException
 from lightning import Trainer
 from lightning.pytorch.callbacks import (
     EarlyStopping,
@@ -63,18 +64,17 @@ def generate_trainer(config: dict[str, Any]) -> Trainer:
         every_n_epochs=1,
     )
 
-    early_stopping_callback = EarlyStopping(
-        monitor=track_metric, min_delta=1e-5, patience=100, mode=mode
-    )
-
     lr_monitor_callback = LearningRateMonitor(logging_interval="step")
 
     return instantiate(
         config.trainer,
         default_root_dir=config["experiment"]["save_dir"],
-        callbacks=[checkpoint_callback, early_stopping_callback, lr_monitor_callback],
+        callbacks=[checkpoint_callback, lr_monitor_callback],
+        # callbacks=[lr_monitor_callback],
         logger=loggers,
     )
+
+post_hoc_methods = ["SWAG", "Laplace", "ConformalQR", "CARD", "DeepEnsemble"]
 
 
 if __name__ == "__main__":
@@ -89,42 +89,58 @@ if __name__ == "__main__":
 
     datamodule = instantiate(full_config.datamodule)
 
-    # 
-    # need to load imagenet weights manually because node does not have internet access
-    try:
-        model = instantiate(full_config.uq_method.model, pretrained=False, num_classes=1000)
-        num_classes = full_config.uq_method.model.num_classes
-    except ConfigAttributeError:
-        model = instantiate(full_config.uq_method.feature_extractor, pretrained=False, num_classes=1000)
-        num_classes = full_config.uq_method.feature_extractor.num_classes
-
-    prev_conv1 = model.conv1.weight.data.clone()
-    model.load_state_dict(torch.load(full_config.resnet_ckpt))
-    print(f"Weights are loaded if the first layer is not equal anymore, so torch equal should be False, got: {torch.equal(prev_conv1, model.conv1.weight.data)}")
-    # replace last layer
-    model.fc = torch.nn.Linear(
-        in_features=model.fc.in_features,
-        out_features=num_classes,
-        bias=True,
-    )
-
-    try:
-        model = instantiate(full_config.uq_method, model=model)
-    except:
-        model = instantiate(full_config.uq_method, feature_extractor=model)
-
     trainer = generate_trainer(full_config)
+    
+    if any(method in full_config.uq_method._target_ for method in post_hoc_methods):
+        # post hoc methods just load a checkpoint
+        if "SWAG" in full_config.uq_method["_target_"] or "CARD" in full_config.uq_method["_target_"]:
+            model = instantiate(full_config.uq_method)
+            trainer.fit(model, datamodule=datamodule)
+        elif "Laplace" in full_config.uq_method["_target_"]:
+            pass
+        elif "DeepEnsemble" in full_config.uq_method["_target_"]:
+            ensemble_members = [
+                {"base_model": instantiate(full_config.ensemble_members), "ckpt_path": path}
+                for path in full_config.uq_method.ensemble_members
+            ]
+            model = instantiate(full_config.uq_method, ensemble_members=ensemble_members)
+        elif "ConformalQR" in full_config.uq_method["_target_"]:
+            datamodule.setup("fit")
+            model = instantiate(full_config.uq_method)
+            trainer.validate(model, dataloaders=datamodule.calibration_dataloader())
+        else:
+            model = instantiate(full_config.uq_method)
+            trainer.validate(model, datamodule=datamodule)
 
-    # laplace only uses test
-    if "laplace" not in command_line_conf.model_config:
+        trainer.test(model, datamodule=datamodule)
+    else:
+        try:
+            model = instantiate(full_config.uq_method.model, pretrained=False, num_classes=1000)
+        except ConfigAttributeError:
+            model = instantiate(full_config.uq_method.feature_extractor, pretrained=False, num_classes=1000)
+            num_classes = full_config.uq_method.feature_extractor.num_classes
+        
+        prev_conv1 = model.conv1.weight.data.clone()
+        model.load_state_dict(torch.load(full_config.resnet_ckpt))
+        print(f"Weights are loaded if the first layer is not equal anymore, so torch equal should be False, got: {torch.equal(prev_conv1, model.conv1.weight.data)}")
+        # replace last layer
+        model.fc = torch.nn.Linear(
+            in_features=model.fc.in_features,
+            out_features=num_classes,
+            bias=True,
+        )
+
+        try:
+            model = instantiate(full_config.uq_method, model=model)
+        except:
+            model = instantiate(full_config.uq_method, feature_extractor=model)
+
         trainer.fit(model, datamodule)
         trainer.test(ckpt_path="best", datamodule=datamodule)
-    else:
-        trainer.test(model, datamodule=datamodule)
 
+    # store predictions for training and test set
     target_mean = datamodule.target_mean.cpu()
     target_std = datamodule.target_std.cpu()
-
 
     # Also store predictions for training
     def collate(batch: list[dict[str, torch.Tensor]]):

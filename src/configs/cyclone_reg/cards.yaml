@@ -1,0 +1,38 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.CARDRegression
+  cond_mean_model:
+    _target_: lightning_uq_box.uq_methods.utils.checkpoint_loader
+    model_class:
+      _target_: lightning_uq_box.uq_methods.DeterministicRegression
+      model:
+        _target_: timm.create_model
+        model_name: resnet18
+        in_chans: 3
+        num_classes: 1
+      loss_fn:
+        _target_: torch.nn.MSELoss
+    ckpt_path: /p/project/hai_uqmethodbox/experiment_output/keep_reg/cyclone_DeterministicRegression_12-13-2023_13-37-13-856844/epoch=7-step=1224.ckpt
+  guidance_model:
+    _target_: lightning_uq_box.models.ConditionalGuidedConvModel
+    encoder:
+      _target_: timm.create_model # timm.create_model for timm models
+      # all arguments to initiate the mlp for example
+      model_name: "resnet18"
+      in_chans: 3
+      num_classes: 1
+      pretrained: false
+    cond_guide_model:
+      _target_: lightning_uq_box.models.ConditionalGuidedLinearModel
+      n_steps: 500
+      x_dim: 1 
+      y_dim: 1 # encoder output dim * 2
+      n_hidden: [128, 128, 128]
+      cat_x: false
+      cat_y_pred: false
+  guidance_optim:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003
+  beta_schedule: "linear"
+  n_steps: 500
+  n_z_samples: 30

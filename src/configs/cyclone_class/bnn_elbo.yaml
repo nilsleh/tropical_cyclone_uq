@@ -14,12 +14,11 @@ uq_method:
   posterior_mu_init: 0.0
   posterior_rho_init: -3.0
   bayesian_layer_type: "reparameterization"
-  num_training_points: 59193
   stochastic_module_names:
   - layer4.1.conv1
   - layer4.1.conv2
   - fc
   optimizer:
-    _target_: torch.optim.Adam # can change optimizers here easily
+    _target_: torch.optim.SGD # can change optimizers here easily
     _partial_: true
     lr: 0.001

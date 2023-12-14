@@ -1,0 +1,31 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.SWAGRegression
+  model:
+    _target_: lightning_uq_box.uq_methods.utils.checkpoint_loader
+    model_class:
+      _target_: lightning_uq_box.uq_methods.MVERegression
+      model:
+        _target_: timm.create_model
+        model_name: resnet18
+        in_chans: 3
+        num_classes: 2
+      burnin_epochs: 0
+    ckpt_path: /p/project/hai_uqmethodbox/experiment_output/keep_reg/cyclone_MVERegression_12-11-2023_17-52-33-292682/epoch=0-step=156.ckpt
+    return_model: True
+
+  max_swag_snapshots: 50
+  snapshot_freq: 1
+  num_mc_samples: 30
+  swag_lr: 0.003
+  loss_fn:
+    _target_: lightning_uq_box.uq_methods.NLL
+  num_datapoints_for_bn_update: 0
+  stochastic_module_names:
+  - layer4.1.conv1
+  - layer4.1.conv2
+  - fc
+
+trainer:
+  _target_: lightning.pytorch.Trainer
+  min_epochs: 1
+  max_epochs: 10 # number of swag epochs

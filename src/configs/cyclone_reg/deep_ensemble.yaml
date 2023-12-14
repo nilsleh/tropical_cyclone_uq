@@ -1,0 +1,19 @@
+ensemble_members:
+  _target_: lightning_uq_box.uq_methods.MVERegression
+  model:
+    _target_: timm.create_model
+    model_name: resnet18
+    in_chans: 3
+    num_classes: 2
+  burnin_epochs: 0
+
+uq_method:
+  _target_: lightning_uq_box.uq_methods.DeepEnsembleRegression
+  n_ensemble_members: 5
+  ensemble_members:
+  - /p/project/hai_uqmethodbox/experiment_output/ensemble_reg/cyclone_MVERegression_12-11-2023_18-11-48-742808/epoch=0-step=151.ckpt
+  - /p/project/hai_uqmethodbox/experiment_output/ensemble_reg/cyclone_MVERegression_12-11-2023_18-11-48-742821/epoch=0-step=159.ckpt
+  - /p/project/hai_uqmethodbox/experiment_output/ensemble_reg/cyclone_MVERegression_12-11-2023_18-11-48-742833/epoch=0-step=154.ckpt
+  - /p/project/hai_uqmethodbox/experiment_output/ensemble_reg/cyclone_MVERegression_12-11-2023_18-11-48-742908/epoch=0-step=155.ckpt
+  - /p/project/hai_uqmethodbox/experiment_output/ensemble_reg/cyclone_MVERegression_12-13-2023_13-37-13-845874/epoch=0-step=153.ckpt
+  

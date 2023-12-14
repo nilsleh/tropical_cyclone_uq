@@ -5,9 +5,10 @@ from typing import Any, Dict
 import kornia.augmentation as K
 import torch
 from torch import Tensor
-from torch.utils.data import Subset
+from torch.utils.data import Subset, DataLoader
 from torchgeo.datamodules import NonGeoDataModule
 from torchgeo.datamodules.utils import group_shuffle_split
+from sklearn.model_selection import train_test_split
 from torchgeo.transforms import AugmentationSequential
 
 from tropical_cyclone_ds import TropicalCycloneSequence
@@ -76,13 +77,20 @@ class TropicalCycloneSequenceDataModule(NonGeoDataModule):
         if stage in ["fit", "validate"]:
             self.dataset = TropicalCycloneSequence(split="train", task=self.task, **self.kwargs)
             train_indices, val_indices = group_shuffle_split(
-                self.dataset.sequence_df.storm_id, test_size=0.15, random_state=0
+                self.dataset.sequence_df.storm_id, test_size=0.20, random_state=0
             )
 
+            validation_indices, calibration_indices = train_test_split(val_indices, test_size=0.20, random_state=0)
+
             self.train_dataset = Subset(self.dataset, train_indices)
-            self.val_dataset = Subset(self.dataset, val_indices)
+            self.val_dataset = Subset(self.dataset, validation_indices)
+            self.calibration_dataset = Subset(self.dataset, calibration_indices)
         if stage in ["test"]:
             self.test_dataset = TropicalCycloneSequence(split="test", task=self.task, **self.kwargs)
+
+    def calibration_dataloader(self) -> torch.utils.data.DataLoader:
+        """Return a dataloader for the calibration dataset."""
+        return DataLoader(self.calibration_dataset, batch_size=self.batch_size, num_workers=self.num_workers, collate_fn=self.collate_fn, shuffle=False)
 
     def on_after_batch_transfer(
         self, batch: Dict[str, Tensor], dataloader_idx: int

@@ -8,6 +8,6 @@ uq_method:
   loss_fn:
     _target_: torch.nn.CrossEntropyLoss
   optimizer:
-    _target_: torch.optim.Adam
+    _target_: torch.optim.SGD
     _partial_: True
     lr: 0.003
