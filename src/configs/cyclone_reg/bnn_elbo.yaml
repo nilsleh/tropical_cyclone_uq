@@ -14,7 +14,7 @@ uq_method:
   posterior_mu_init: 0.0
   posterior_rho_init: -3.0
   bayesian_layer_type: "reparameterization"
-  beta: 10000
+  beta: 1000
   burnin_epochs: 0
   stochastic_module_names:
   - layer4.1.conv1
@@ -24,7 +24,7 @@ uq_method:
     _target_: torch.optim.Adam # can change optimizers here easily
     _partial_: true
     lr: 0.001
-  lr_scheduler:
-    _target_: torch.optim.lr_scheduler.CosineAnnealingLR
-    _partial_: true
-    T_max: 100
+  # lr_scheduler:
+  #   _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  #   _partial_: true
+  #   T_max: 100
