@@ -97,7 +97,7 @@ if __name__ == "__main__":
             model = instantiate(full_config.uq_method)
             trainer.fit(model, datamodule=datamodule)
         elif "Laplace" in full_config.uq_method["_target_"]:
-            pass
+            model = instantiate(full_config.uq_method)
         elif "DeepEnsemble" in full_config.uq_method["_target_"]:
             ensemble_members = [
                 {"base_model": instantiate(full_config.ensemble_members), "ckpt_path": path}
@@ -116,19 +116,27 @@ if __name__ == "__main__":
     else:
         try:
             model = instantiate(full_config.uq_method.model, pretrained=False, num_classes=1000)
+            num_classes = full_config.uq_method.model.num_classes
         except ConfigAttributeError:
             model = instantiate(full_config.uq_method.feature_extractor, pretrained=False, num_classes=1000)
             num_classes = full_config.uq_method.feature_extractor.num_classes
         
-        prev_conv1 = model.conv1.weight.data.clone()
-        model.load_state_dict(torch.load(full_config.resnet_ckpt))
-        print(f"Weights are loaded if the first layer is not equal anymore, so torch equal should be False, got: {torch.equal(prev_conv1, model.conv1.weight.data)}")
+        # prev_conv1 = model.conv1.weight.data.clone()
+        model.load_state_dict(torch.load(full_config.imagenet_ckpt))
+        # print(f"Weights are loaded if the first layer is not equal anymore, so torch equal should be False, got: {torch.equal(prev_conv1, model.conv1.weight.data)}")
         # replace last layer
-        model.fc = torch.nn.Linear(
-            in_features=model.fc.in_features,
-            out_features=num_classes,
-            bias=True,
-        )
+        if "resnet" in full_config.imagenet_ckpt:
+            model.fc = torch.nn.Linear(
+                in_features=model.fc.in_features,
+                out_features=num_classes,
+                bias=True,
+            )
+        elif "efficientnet_b0" in full_config.imagenet_ckpt:
+            model.classifier = torch.nn.Linear(
+                in_features=model.classifier.in_features,
+                out_features=num_classes,
+                bias=True,
+            )
 
         try:
             model = instantiate(full_config.uq_method, model=model)
