@@ -65,7 +65,6 @@ class TropicalCycloneSequence(TropicalCyclone):
         self.task = task
         self.min_wind_speed = min_wind_speed
         self.seq_len = seq_len
-
         self.sequence_df = self.construct_sequences()
 
         print(f"Num samples: {len(self.sequence_df)}")
@@ -191,6 +190,7 @@ class TropicalCycloneSequence(TropicalCyclone):
         else:
             sample["target"] = torch.tensor(int(self.sequence_df.iloc[index].wind_speed)).float().unsqueeze(-1)
 
+        sample["index"] = index
         # already stored under "target"
         del sample["label"]
         del sample["wind_speed"]

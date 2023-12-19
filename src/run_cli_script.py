@@ -16,6 +16,16 @@ from lightning.pytorch.loggers import CSVLogger, WandbLogger  # noqa: F401
 from omegaconf import OmegaConf
 
 
+def collate_fn(batch: list[dict[str, torch.Tensor]]):
+    """Collate fn to include augmentations."""
+    images = [item["image"] for item in batch]
+    labels = [item["label"] for item in batch]
+
+    inputs = torch.stack(images)
+    targets = torch.stack(labels)
+    return {"input": inputs, "target": targets}
+
+
 def create_experiment_dir(config: dict[str, Any]) -> str:
     """Create experiment directory.
 
@@ -66,11 +76,15 @@ def generate_trainer(config: dict[str, Any]) -> Trainer:
 
     lr_monitor_callback = LearningRateMonitor(logging_interval="step")
 
+    if "SWAG" in config.uq_method["_target_"]:
+        callbacks = None
+    else:
+        callbacks = [checkpoint_callback, lr_monitor_callback]
+
     return instantiate(
         config.trainer,
         default_root_dir=config["experiment"]["save_dir"],
-        callbacks=[checkpoint_callback, lr_monitor_callback],
-        # callbacks=[lr_monitor_callback],
+        callbacks=callbacks,
         logger=loggers,
     )
 
@@ -88,6 +102,11 @@ if __name__ == "__main__":
     full_config = create_experiment_dir(full_config)
 
     datamodule = instantiate(full_config.datamodule)
+
+    # if "DigitalTyphoon" in full_config.datamodule["_target_"]:
+    #     datamodule.collate_fn = collate_fn
+    #     datamodule.aug.data_keys = ["input"]
+    # set collate fn for Digital Typhoon
 
     trainer = generate_trainer(full_config)
     
@@ -160,12 +179,12 @@ if __name__ == "__main__":
         targets = torch.stack(labels)
         if datamodule.task == "regression":
             return {
-                "input": datamodule.aug({"image": inputs.float()})["image"],
+                "input": datamodule.aug({"input": inputs.float()})["input"],
                 "target": (targets[..., -1:].float() - target_mean) / target_std,
             }
         else:
             return {
-                "input": datamodule.aug({"image": inputs.float()})["image"],
+                "input": datamodule.aug({"input": inputs.float()})["input"],
                 "target": targets.squeeze().long(),
             }
 
