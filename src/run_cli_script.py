@@ -102,11 +102,38 @@ if __name__ == "__main__":
     full_config = create_experiment_dir(full_config)
 
     datamodule = instantiate(full_config.datamodule)
+    datamodule.setup("fit")
 
     # if "DigitalTyphoon" in full_config.datamodule["_target_"]:
     #     datamodule.collate_fn = collate_fn
     #     datamodule.aug.data_keys = ["input"]
     # set collate fn for Digital Typhoon
+
+     # store predictions for training and test set
+    target_mean = datamodule.target_mean.cpu()
+    target_std = datamodule.target_std.cpu()
+
+    # Also store predictions for training
+    def collate(batch: list[dict[str, torch.Tensor]]):
+        """Collate fn to include augmentations."""
+        images = [item["input"] for item in batch]
+        labels = [item["target"] for item in batch]
+
+        inputs = torch.stack(images)
+        targets = torch.stack(labels)
+        if datamodule.task == "regression":
+            return {
+                "input": datamodule.aug({"input": inputs.float()})["input"],
+                "target": (targets[..., -1:].float() - target_mean) / target_std,
+            }
+        else:
+            return {
+                "input": datamodule.aug({"input": inputs.float()})["input"],
+                "target": targets.squeeze().long(),
+            }
+        
+    calib_loader = datamodule.calibration_dataloader()
+    calib_loader.collate_fn = collate
 
     trainer = generate_trainer(full_config)
     
@@ -126,7 +153,7 @@ if __name__ == "__main__":
         elif "ConformalQR" in full_config.uq_method["_target_"]:
             datamodule.setup("fit")
             model = instantiate(full_config.uq_method)
-            trainer.validate(model, dataloaders=datamodule.calibration_dataloader())
+            trainer.validate(model, dataloaders=calib_loader)
         else:
             model = instantiate(full_config.uq_method)
             trainer.validate(model, datamodule=datamodule)
