@@ -30,7 +30,11 @@ class TropicalCycloneSequenceDataModule(NonGeoDataModule):
     valid_tasks = ["regression", "classification"]
 
     def __init__(
-        self, task: str = "regression", batch_size: int = 64, num_workers: int = 0, **kwargs: Any
+        self,
+        task: str = "regression",
+        batch_size: int = 64,
+        num_workers: int = 0,
+        **kwargs: Any,
     ) -> None:
         """Initialize a new TropicalCycloneDataModule instance.
 
@@ -43,14 +47,16 @@ class TropicalCycloneSequenceDataModule(NonGeoDataModule):
         """
         super().__init__(TropicalCycloneSequence, batch_size, num_workers, **kwargs)
 
-        assert task in self.valid_tasks, f"invalid task '{task}', please choose one of {self.valid_tasks}"
+        assert (
+            task in self.valid_tasks
+        ), f"invalid task '{task}', please choose one of {self.valid_tasks}"
         self.task = task
 
         self.dataset = TropicalCycloneSequence(split="train", **self.kwargs)
         # mean and std can change based on setup because min wind speed is a variable
         self.target_mean = torch.Tensor([self.dataset.target_mean])
         self.target_std = torch.Tensor([self.dataset.target_std])
-        
+
         self.train_aug = AugmentationSequential(
             K.Normalize(mean=self.mean, std=self.std),
             K.Normalize(mean=self.input_mean, std=self.input_std),
@@ -76,22 +82,67 @@ class TropicalCycloneSequenceDataModule(NonGeoDataModule):
             stage: Either 'fit', 'validate', 'test', or 'predict'.
         """
         if stage in ["fit", "validate"]:
-            self.dataset = TropicalCycloneSequence(split="train", task=self.task, **self.kwargs)
+            self.dataset = TropicalCycloneSequence(
+                split="train", task=self.task, **self.kwargs
+            )
             train_indices, val_indices = group_shuffle_split(
                 self.dataset.sequence_df.storm_id, test_size=0.20, random_state=0
             )
+            validation_indices, calibration_indices = train_test_split(
+                val_indices, test_size=0.20, random_state=0
+            )
 
-            validation_indices, calibration_indices = train_test_split(val_indices, test_size=0.20, random_state=0)
+            # print("LENGTH INSIDE SETUP")
+            # print("LENGTH indices", len(train_indices))
+            # print("LENGTH indices", len(validation_indices))
+            # print("LENGTH indices", len(calibration_indices))
 
             self.train_dataset = Subset(self.dataset, train_indices)
             self.val_dataset = Subset(self.dataset, validation_indices)
             self.calibration_dataset = Subset(self.dataset, calibration_indices)
+
+            # print("LENGTH train", len(self.train_dataset))
+            # print("LENGTH val", len(self.val_dataset))
+            # print("LENGTH calibration", len(self.calibration_dataset))
         if stage in ["test"]:
-            self.test_dataset = TropicalCycloneSequence(split="test", task=self.task, **self.kwargs)
+            self.test_dataset = TropicalCycloneSequence(
+                split="test", task=self.task, **self.kwargs
+            )
+            # print("LENGTH INSIDE SETUP")
+            # print("LENGTH test", len(self.test_dataset))
 
     def calibration_dataloader(self) -> torch.utils.data.DataLoader:
         """Return a dataloader for the calibration dataset."""
-        return DataLoader(self.calibration_dataset, batch_size=self.batch_size, num_workers=self.num_workers, collate_fn=self.collate_fn, shuffle=False)
+        return DataLoader(
+            self.calibration_dataset,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            collate_fn=self.collate_fn,
+            shuffle=False,
+        )
+
+    def _dataloader_factory(self, split: str) -> DataLoader[dict[str, Tensor]]:
+        """Implement one or more PyTorch DataLoaders.
+
+        Args:
+            split: Either 'train', 'val', 'test', or 'predict'.
+
+        Returns:
+            A collection of data loaders specifying samples.
+
+        Raises:
+            MisconfigurationException: If :meth:`setup` does not define a
+                dataset or sampler, or if the dataset or sampler has length 0.
+        """
+        dataset = self._valid_attribute(f"{split}_dataset", "dataset")
+        batch_size = self._valid_attribute(f"{split}_batch_size", "batch_size")
+        return DataLoader(
+            dataset=dataset,
+            batch_size=batch_size,
+            shuffle=split == "train",
+            num_workers=self.num_workers,
+            collate_fn=self.collate_fn,
+        )
 
     def on_after_batch_transfer(
         self, batch: Dict[str, Tensor], dataloader_idx: int
@@ -116,27 +167,40 @@ class TropicalCycloneSequenceDataModule(NonGeoDataModule):
         if self.task == "regression":
             new_batch = {
                 "input": self.aug({"input": batch["input"].float()})["input"],
-                "target": (batch["target"].float() - self.target_mean) / self.target_std,
+                "target": (batch["target"].float() - self.target_mean)
+                / self.target_std,
             }
         else:
             new_batch = {
                 "input": self.aug({"input": batch["input"].float()})["input"],
                 "target": batch["target"].long(),
             }
+
+        # add back all other keys
+        for key, value in batch.items():
+            if key not in ["input", "target"]:
+                new_batch[key] = value
         return new_batch
-    
+
 
 class MyDigitalTyphoonAnalysis(DigitalTyphoonAnalysis):
     def __getitem__(self, index: int):
         sample = super().__getitem__(index)
 
         # Rename 'image' and 'mask' keys
-        sample['input'] = sample.pop('image')
+        sample["input"] = sample.pop("image")
         sample["target"] = sample.pop("label")
         return sample
 
+
 class MyDigitalTyphoonAnalysisDataModule(NonGeoDataModule):
     valid_split_types = ["time", "typhoon_id"]
+
+    # mean = torch.Tensor([260.23836020479655])
+    # std = torch.Tensor([22.303783180826187])
+    min_input_clamp = 170.0
+    max_input_clamp = 300.0
+
     def __init__(
         self,
         split_by: str = "time",
@@ -163,11 +227,15 @@ class MyDigitalTyphoonAnalysisDataModule(NonGeoDataModule):
         self.split_by = split_by
 
         # Rename 'image' and 'mask' keys
-        self.aug.data_keys = ['input']
+        self.aug = AugmentationSequential(
+            # K.Normalize(mean=self.mean, std=self.std),
+            K.Resize(224),
+            data_keys=["input"],
+        )
 
-    def split_dataset(
-        self, dataset: MyDigitalTyphoonAnalysis
-    ):
+        # self.aug.data_keys = ['input']
+
+    def split_dataset(self, dataset: MyDigitalTyphoonAnalysis):
         """Split dataset into two parts.
 
         Args:
@@ -206,9 +274,6 @@ class MyDigitalTyphoonAnalysisDataModule(NonGeoDataModule):
         """
         self.dataset = MyDigitalTyphoonAnalysis(**self.kwargs)
 
-        self.target_mean = torch.tensor(self.dataset.aux_df[self.dataset.target[0]].mean())
-        self.target_std = torch.tensor(self.dataset.aux_df[self.dataset.target[0]].std())
-
         self.task = self.dataset.task
 
         train_sequences, test_sequences = self.split_dataset(self.dataset)
@@ -221,6 +286,15 @@ class MyDigitalTyphoonAnalysisDataModule(NonGeoDataModule):
             # create training dataset
             self.train_dataset = MyDigitalTyphoonAnalysis(**self.kwargs)
             self.train_dataset.sample_sequences = train_sequences
+
+            # target normalization statistics
+            # TODO normalization of all statistics
+            self.target_mean = torch.tensor(
+                self.train_dataset.aux_df[self.dataset.target[0]].mean()
+            )
+            self.target_std = torch.tensor(
+                self.train_dataset.aux_df[self.dataset.target[0]].std()
+            )
 
             # create validation dataseqt
             self.val_dataset = MyDigitalTyphoonAnalysis(**self.kwargs)
@@ -250,10 +324,24 @@ class MyDigitalTyphoonAnalysisDataModule(NonGeoDataModule):
                 batch["input"] = batch["input"].to(self.target_mean.device)
                 batch["target"] = batch["target"].to(self.target_mean.device)
 
+        # https://github.com/kitamoto-lab/benchmarks/blob/1bdbefd7c570cb1bdbdf9e09f9b63f7c22bbdb27/analysis/regression/FrameDatamodule.py#L94
+        batch["input"] = torch.clamp(
+            batch["input"], self.min_input_clamp, self.max_input_clamp
+        )
+        batch["input"] = (batch["input"] - self.min_input_clamp) / (
+            self.max_input_clamp - self.min_input_clamp
+        )
+
+        input = self.aug({"input": batch["input"].float()})["input"]
+        # input = torch.clamp(input, min=-5, max=5)
+
         new_batch = {
-            "input": self.aug({"input": batch["input"].float()})["input"],
+            "input": input,
             "target": (batch["target"].float() - self.target_mean) / self.target_std,
         }
+
+        # add back all other keys
+        for key, value in batch.items():
+            if key not in ["input", "target"]:
+                new_batch[key] = value
         return new_batch
-
-

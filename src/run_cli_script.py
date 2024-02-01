@@ -88,6 +88,7 @@ def generate_trainer(config: dict[str, Any]) -> Trainer:
         logger=loggers,
     )
 
+
 post_hoc_methods = ["SWAG", "Laplace", "ConformalQR", "CARD", "DeepEnsemble"]
 
 
@@ -109,7 +110,7 @@ if __name__ == "__main__":
     #     datamodule.aug.data_keys = ["input"]
     # set collate fn for Digital Typhoon
 
-     # store predictions for training and test set
+    # store predictions for training and test set
     target_mean = datamodule.target_mean.cpu()
     target_std = datamodule.target_std.cpu()
 
@@ -131,25 +132,33 @@ if __name__ == "__main__":
                 "input": datamodule.aug({"input": inputs.float()})["input"],
                 "target": targets.squeeze().long(),
             }
-        
+
     calib_loader = datamodule.calibration_dataloader()
     calib_loader.collate_fn = collate
 
     trainer = generate_trainer(full_config)
-    
+
     if any(method in full_config.uq_method._target_ for method in post_hoc_methods):
         # post hoc methods just load a checkpoint
-        if "SWAG" in full_config.uq_method["_target_"] or "CARD" in full_config.uq_method["_target_"]:
+        if (
+            "SWAG" in full_config.uq_method["_target_"]
+            or "CARD" in full_config.uq_method["_target_"]
+        ):
             model = instantiate(full_config.uq_method)
             trainer.fit(model, datamodule=datamodule)
         elif "Laplace" in full_config.uq_method["_target_"]:
             model = instantiate(full_config.uq_method)
         elif "DeepEnsemble" in full_config.uq_method["_target_"]:
             ensemble_members = [
-                {"base_model": instantiate(full_config.ensemble_members), "ckpt_path": path}
+                {
+                    "base_model": instantiate(full_config.ensemble_members),
+                    "ckpt_path": path,
+                }
                 for path in full_config.uq_method.ensemble_members
             ]
-            model = instantiate(full_config.uq_method, ensemble_members=ensemble_members)
+            model = instantiate(
+                full_config.uq_method, ensemble_members=ensemble_members
+            )
         elif "ConformalQR" in full_config.uq_method["_target_"]:
             datamodule.setup("fit")
             model = instantiate(full_config.uq_method)
@@ -157,16 +166,23 @@ if __name__ == "__main__":
         else:
             model = instantiate(full_config.uq_method)
             trainer.validate(model, datamodule=datamodule)
-
+            
+        model.pred_file_name = "preds_test.csv"
         trainer.test(model, datamodule=datamodule)
     else:
         try:
-            model = instantiate(full_config.uq_method.model, pretrained=False, num_classes=1000)
+            model = instantiate(
+                full_config.uq_method.model, pretrained=False, num_classes=1000
+            )
             num_classes = full_config.uq_method.model.num_classes
         except ConfigAttributeError:
-            model = instantiate(full_config.uq_method.feature_extractor, pretrained=False, num_classes=1000)
+            model = instantiate(
+                full_config.uq_method.feature_extractor,
+                pretrained=False,
+                num_classes=1000,
+            )
             num_classes = full_config.uq_method.feature_extractor.num_classes
-        
+
         # prev_conv1 = model.conv1.weight.data.clone()
         model.load_state_dict(torch.load(full_config.imagenet_ckpt))
         # print(f"Weights are loaded if the first layer is not equal anymore, so torch equal should be False, got: {torch.equal(prev_conv1, model.conv1.weight.data)}")
@@ -190,6 +206,7 @@ if __name__ == "__main__":
             model = instantiate(full_config.uq_method, feature_extractor=model)
 
         trainer.fit(model, datamodule)
+        model.pred_file_name = "preds_test.csv"
         trainer.test(ckpt_path="best", datamodule=datamodule)
 
     # store predictions for training and test set

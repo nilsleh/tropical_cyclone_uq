@@ -61,13 +61,13 @@ class TropicalCycloneSequence(TropicalCyclone):
         """
         super().__init__(root, split, None, download, api_key, checksum)
 
-        assert task in self.valid_tasks, f"invalid task '{task}', please choose one of {self.valid_tasks}"
+        assert (
+            task in self.valid_tasks
+        ), f"invalid task '{task}', please choose one of {self.valid_tasks}"
         self.task = task
         self.min_wind_speed = min_wind_speed
         self.seq_len = seq_len
         self.sequence_df = self.construct_sequences()
-
-        print(f"Num samples: {len(self.sequence_df)}")
 
     def construct_sequences(self) -> list[list[str]]:
         """Construct sequence collection for data loading.
@@ -80,20 +80,28 @@ class TropicalCycloneSequence(TropicalCyclone):
         df = df[df["wind_speed"] >= self.min_wind_speed]
 
         # setup df for possible classification task
-        filtered_class_bins = {k: v for k, v in self.class_bins.items() if v[1] > self.min_wind_speed}
-        filtered_class_bins = dict(sorted(filtered_class_bins.items(), key=lambda item: item[1][0]))
-        
+        filtered_class_bins = {
+            k: v for k, v in self.class_bins.items() if v[1] > self.min_wind_speed
+        }
+        filtered_class_bins = dict(
+            sorted(filtered_class_bins.items(), key=lambda item: item[1][0])
+        )
+
         def assign_class(wind_speed):
             """Assign class index to wind speed."""
-            for i, (class_name, (min_speed, max_speed)) in enumerate(filtered_class_bins.items()):
+            for i, (class_name, (min_speed, max_speed)) in enumerate(
+                filtered_class_bins.items()
+            ):
                 # if wind_speed is within the range of the class, return the class index
                 if min_speed <= wind_speed <= max_speed:
                     return i
             return len(filtered_class_bins) - 1
 
-        df['class_index'] = df['wind_speed'].apply(assign_class)
+        df["class_index"] = df["wind_speed"].apply(assign_class)
 
-        self.class_to_name = {i: class_name for i, class_name in enumerate(filtered_class_bins.keys())}
+        self.class_to_name = {
+            i: class_name for i, class_name in enumerate(filtered_class_bins.keys())
+        }
 
         df["seq_id"] = (
             df["path"]
@@ -118,13 +126,10 @@ class TropicalCycloneSequence(TropicalCyclone):
             max_seq_id = df["seq_id"].max()
             # generate possible subsquences of length k for the group
             subsequences = [
-                list(range(i, i + k))
-                for i in range(min_seq_id, max_seq_id - k + 2)
+                list(range(i, i + k)) for i in range(min_seq_id, max_seq_id - k + 2)
             ]
             filtered_subsequences: list[list[int]] = [
-                subseq
-                for subseq in subsequences
-                if set(subseq).issubset(df["seq_id"])
+                subseq for subseq in subsequences if set(subseq).issubset(df["seq_id"])
             ]
 
             wind_speeds = [
@@ -147,9 +152,16 @@ class TropicalCycloneSequence(TropicalCyclone):
             }
 
         # Group by 'object_id' and find consecutive triplets for each group
-        cons_sequences = df.groupby("storm_id").apply(get_subsequences, k=self.seq_len).tolist()
+        cons_sequences = (
+            df.groupby("storm_id").apply(get_subsequences, k=self.seq_len).tolist()
+        )
         # dropna the empty sequences
-        sequence_df = pd.DataFrame(cons_sequences).explode(["subsequences", "wind_speed", "class_label"]).reset_index(drop=True).dropna()
+        sequence_df = (
+            pd.DataFrame(cons_sequences)
+            .explode(["subsequences", "wind_speed", "class_label"])
+            .reset_index(drop=True)
+            .dropna()
+        )
 
         return sequence_df
 
@@ -184,13 +196,22 @@ class TropicalCycloneSequence(TropicalCyclone):
 
         sample: dict[str, Any] = {"input": torch.stack(imgs, 0)}
         sample.update(self._load_features(directory))
-     
+
         if self.task == "classification":
-            sample["target"] = torch.tensor(int(self.sequence_df.iloc[index].class_label)).squeeze().long()
+            sample["target"] = (
+                torch.tensor(int(self.sequence_df.iloc[index].class_label))
+                .squeeze()
+                .long()
+            )
         else:
-            sample["target"] = torch.tensor(int(self.sequence_df.iloc[index].wind_speed)).float().unsqueeze(-1)
+            sample["target"] = (
+                torch.tensor(int(self.sequence_df.iloc[index].wind_speed))
+                .float()
+                .unsqueeze(-1)
+            )
 
         sample["index"] = index
+        sample["storm_id"] = storm_id
         # already stored under "target"
         del sample["label"]
         del sample["wind_speed"]
