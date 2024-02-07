@@ -76,7 +76,7 @@ if __name__ == "__main__":
     torch.set_float32_matmul_precision("medium")
 
     # based on an experimnet directory find configs and checkpoints
-    exp_dir = "/p/project/hai_uqmethodbox/experiment_output/min_wind_speed_0"
+    exp_dir = "/p/project/hai_uqmethodbox/experiment_output/min_card"
     new_exp_dir = "/p/project/hai_uqmethodbox/experiment_output/min_wind_speed_0_debug"
 
     # make a dictionary of config and checkpoint paths
@@ -97,10 +97,6 @@ if __name__ == "__main__":
 
     # loop over configs and checkpoints
     for name, paths in config_ckpt_dict.items():
-        print(name)
-        print(paths)
-        if name == "CARDRegression":
-            continue
 
         # load config
         config = OmegaConf.load(paths["config_path"])
@@ -191,9 +187,9 @@ if __name__ == "__main__":
             trainer.validate(model, dataloaders=calib_loader)
 
         # make predictions
-        make_predictions("train", model, datamodule, trainer, config)
-        make_predictions("val", model, datamodule, trainer, config)
         make_predictions("test", model, datamodule, trainer, config)
+        make_predictions("val", model, datamodule, trainer, config)
+        make_predictions("train", model, datamodule, trainer, config)
 
         # copy config to save dir with omegaconf
         OmegaConf.save(config, os.path.join(config.experiment.save_dir, "config.yaml"))
