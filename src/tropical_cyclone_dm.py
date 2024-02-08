@@ -21,9 +21,6 @@ from torchgeo.datamodules import DigitalTyphoonAnalysisDataModule
 def combined_collate_fn(batch):
     """Combined collate fn."""
     resize = Resize(224, antialias=False)
-    import pdb
-
-    pdb.set_trace()
     # combine things from "input" and "image" keys
     inputs = [resize(x.get("input", x.get("image"))) for x in batch]
 
@@ -44,8 +41,7 @@ def combined_collate_fn(batch):
 class CombinedTCDataModule(NonGeoDataModule):
     """Data Module combining the NASA Cyclone and Digital Typhoon datasets."""
     valid_tasks = ["regression", "classification"]
-    # todo possible to do target normalization over both datasets?
-    # because otherwise have to unnormalize separately
+
     def __init__(self, task: str, batch_size: int, num_workers: int, tc_args: Any, dgtl_typhoon_args: Any) -> None:
         super().__init__(TropicalCycloneSequence, batch_size, num_workers, **tc_args)
 
@@ -100,6 +96,11 @@ class CombinedTCDataModule(NonGeoDataModule):
         Args:
             stage: Either 'fit', 'validate', 'test', or 'predict'.
         """
+
+        dgtl_sequences = list(enumerate(self.dgtl_typhoon_dataset.sample_sequences))
+        dgtl_train_indices, test_indices = group_shuffle_split(
+            [x[1]["id"] for x in dgtl_sequences], train_size=0.8, random_state=0
+        )
         
         if stage in ["fit", "validate"]:
             # setup Tropical cyclone dataset
@@ -117,15 +118,12 @@ class CombinedTCDataModule(NonGeoDataModule):
             # setup Digital Typhoon dataset
 
             # first train and validation
-            sequences = list(enumerate(self.dgtl_typhoon_dataset.sample_sequences))
-            train_indices, test_indices = group_shuffle_split(
-                [x[1]["id"] for x in sequences], train_size=0.8, random_state=0
-            )
+
             index_mapping_train = {
                 new_index: original_index
-                for new_index, original_index in enumerate(train_indices)
+                for new_index, original_index in enumerate(dgtl_train_indices)
             }
-            train_sequences = [self.dgtl_typhoon_dataset.sample_sequences[i] for i in train_indices]
+            train_sequences = [self.dgtl_typhoon_dataset.sample_sequences[i] for i in dgtl_train_indices]
             train_sequences = list(enumerate(train_sequences))
             train_indices, val_indices = group_shuffle_split(
                 [x[1]["id"] for x in train_sequences], train_size=0.8, random_state=0
@@ -151,7 +149,7 @@ class CombinedTCDataModule(NonGeoDataModule):
             self.dgtl_calibration_dataset = Subset(self.dgtl_typhoon_dataset, calibration_indices)
 
 
-            # concat datasets
+            # concat datasetssequences
             self.train_dataset = ConcatDataset([self.tc_train_dataset, self.dgtl_train_dataset])
             self.val_dataset = ConcatDataset([self.tc_val_dataset, self.dgtl_val_dataset])
             self.calibration_dataset = ConcatDataset([self.tc_calibration_dataset, self.dgtl_calibration_dataset])
@@ -161,6 +159,8 @@ class CombinedTCDataModule(NonGeoDataModule):
                 split="test", **self.tc_args
             )
             self.dgtl_test_dataset = Subset(self.dgtl_typhoon_dataset, test_indices)
+
+            self.test_dataset = ConcatDataset([self.tc_test_dataset, self.dgtl_test_dataset])
 
             
 
@@ -560,9 +560,10 @@ class MyDigitalTyphoonAnalysisDataModule(NonGeoDataModule):
                 new_batch[key] = value
         return new_batch
 
+
 dm = CombinedTCDataModule(
     task="regression", 
-    batch_size=128, 
+    batch_size=32, 
     num_workers=12,
     tc_args={
         "root": "/p/project/hai_uqmethodbox/data/tropical_cyclone",
@@ -576,9 +577,9 @@ dm = CombinedTCDataModule(
         "targets": ["wind"]
     }
 )
-dm.setup("fit")
+dm.setup("test")
 
-train_dataloader = dm.train_dataloader()
+train_dataloader = dm.test_dataloader()
 
 from tqdm import tqdm
 for i, batch in tqdm(enumerate(train_dataloader)):
