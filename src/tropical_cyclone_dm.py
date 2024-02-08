@@ -22,20 +22,19 @@ def combined_collate_fn(batch):
     """Combined collate fn."""
     resize = Resize(224, antialias=False)
     # combine things from "input" and "image" keys
-    inputs = [resize(x.get("input", x.get("image"))) for x in batch]
+    inputs = [resize(x["input"]) for x in batch]
 
     
     # combine things from "target" and "label" keys
-    targets = [x.get("target", x.get("label")) for x in batch]
+    targets = [x["target"] for x in batch]
 
-    # wind_speeds = [x.get("wind_speed", x.get("wind")) for x in batch]
     return {
         "input": torch.stack(inputs),
         "target": torch.stack(targets),
-        # "wind_speeds": torch.stack(wind_speeds)
+        "storm_ids": [x.get("storm_id") for x in batch],
+        "indices": [x.get("index") for x in batch],
+        "wind_speeds": [int(x["wind_speed"]) for x in batch]
     }
-
-    
 
 
 class CombinedTCDataModule(NonGeoDataModule):
@@ -70,7 +69,7 @@ class CombinedTCDataModule(NonGeoDataModule):
 
         self.tc_dataset = TropicalCycloneSequence(split="train", **self.tc_args)
         self.tc_targets = self.tc_dataset.sequence_df["wind_speed"].astype(float).values
-        self.dgtl_typhoon_dataset = DigitalTyphoonAnalysis(**self.dgtl_typhoon_args)
+        self.dgtl_typhoon_dataset = MyDigitalTyphoonAnalysis(**self.dgtl_typhoon_args)
 
         sequences = list(enumerate(self.dgtl_typhoon_dataset.sample_sequences))
         train_indices, test_indices = group_shuffle_split(
@@ -234,7 +233,6 @@ class CombinedTCDataModule(NonGeoDataModule):
             if key not in ["input", "target"]:
                 new_batch[key] = value
         return new_batch
-
 
 class TropicalCycloneSequenceDataModule(NonGeoDataModule):
     """LightningDataModule implementation for the NASA Cyclone dataset.
@@ -404,6 +402,8 @@ class MyDigitalTyphoonAnalysis(DigitalTyphoonAnalysis):
         # Rename 'image' and 'mask' keys
         sample["input"] = sample.pop("image")
         sample["target"] = sample.pop("label")
+        sample["wind_speed"] = int(sample.pop("wind"))
+        sample["index"] = index
         return sample
 
 
@@ -561,26 +561,26 @@ class MyDigitalTyphoonAnalysisDataModule(NonGeoDataModule):
         return new_batch
 
 
-dm = CombinedTCDataModule(
-    task="regression", 
-    batch_size=32, 
-    num_workers=12,
-    tc_args={
-        "root": "/p/project/hai_uqmethodbox/data/tropical_cyclone",
-        "min_wind_speed": 0
-    },
-    dgtl_typhoon_args={
-        "root": "/p/project/hai_uqmethodbox/data/digital_typhoon",
-        "min_feature_value": {
-            "wind": 0
-        },
-        "targets": ["wind"]
-    }
-)
-dm.setup("test")
+# dm = CombinedTCDataModule(
+#     task="regression", 
+#     batch_size=32, 
+#     num_workers=0,
+#     tc_args={
+#         "root": "/p/project/hai_uqmethodbox/data/tropical_cyclone",
+#         "min_wind_speed": 0
+#     },
+#     dgtl_typhoon_args={
+#         "root": "/p/project/hai_uqmethodbox/data/digital_typhoon",
+#         "min_feature_value": {
+#             "wind": 0
+#         },
+#         "targets": ["wind"]
+#     }
+# )
+# dm.setup("fit")
 
-train_dataloader = dm.test_dataloader()
+# train_dataloader = dm.train_dataloader()
 
-from tqdm import tqdm
-for i, batch in tqdm(enumerate(train_dataloader)):
-    continue
+# from tqdm import tqdm
+# for i, batch in tqdm(enumerate(train_dataloader)):
+#     continue
