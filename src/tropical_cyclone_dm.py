@@ -4,15 +4,236 @@ from typing import Any, Dict
 
 import kornia.augmentation as K
 import torch
+import pandas as pd
 from torch import Tensor
-from torch.utils.data import Subset, DataLoader
+import numpy as np
+from torch.utils.data import Subset, DataLoader, ConcatDataset
 from torchgeo.datamodules import NonGeoDataModule
 from torchgeo.datamodules.utils import group_shuffle_split
 from sklearn.model_selection import train_test_split
 from torchgeo.transforms import AugmentationSequential
+from torchvision.transforms import Resize
 
 from tropical_cyclone_ds import TropicalCycloneSequence
-from torchgeo.datasets import DigitalTyphoonAnalysis
+from torchgeo.datasets import DigitalTyphoonAnalysis, NonGeoDataset
+from torchgeo.datamodules import DigitalTyphoonAnalysisDataModule
+
+def combined_collate_fn(batch):
+    """Combined collate fn."""
+    resize = Resize(224, antialias=False)
+    import pdb
+
+    pdb.set_trace()
+    # combine things from "input" and "image" keys
+    inputs = [resize(x.get("input", x.get("image"))) for x in batch]
+
+    
+    # combine things from "target" and "label" keys
+    targets = [x.get("target", x.get("label")) for x in batch]
+
+    # wind_speeds = [x.get("wind_speed", x.get("wind")) for x in batch]
+    return {
+        "input": torch.stack(inputs),
+        "target": torch.stack(targets),
+        # "wind_speeds": torch.stack(wind_speeds)
+    }
+
+    
+
+
+class CombinedTCDataModule(NonGeoDataModule):
+    """Data Module combining the NASA Cyclone and Digital Typhoon datasets."""
+    valid_tasks = ["regression", "classification"]
+    # todo possible to do target normalization over both datasets?
+    # because otherwise have to unnormalize separately
+    def __init__(self, task: str, batch_size: int, num_workers: int, tc_args: Any, dgtl_typhoon_args: Any) -> None:
+        super().__init__(TropicalCycloneSequence, batch_size, num_workers, **tc_args)
+
+        assert (
+            task in self.valid_tasks
+        ), f"invalid task '{task}', please choose one of {self.valid_tasks}"
+        self.task = task
+
+        self.tc_args = tc_args
+        self.tc_args["task"] = self.task
+        self.dgtl_typhoon_args = dgtl_typhoon_args
+        self.dgtl_typhoon_args["task"] = self.task
+
+        self.train_aug = AugmentationSequential(
+            K.RandomHorizontalFlip(p=0.5),
+            K.RandomVerticalFlip(p=0.5),
+            K.RandomRotation(degrees=(90, 91), p=0.5),
+            K.RandomRotation(degrees=(270, 271), p=0.5),
+            data_keys=["input"],
+        )
+
+        self.aug = AugmentationSequential(
+            K.Resize(224),
+            data_keys=["input"],
+        )
+
+        self.tc_dataset = TropicalCycloneSequence(split="train", **self.tc_args)
+        self.tc_targets = self.tc_dataset.sequence_df["wind_speed"].astype(float).values
+        self.dgtl_typhoon_dataset = DigitalTyphoonAnalysis(**self.dgtl_typhoon_args)
+
+        sequences = list(enumerate(self.dgtl_typhoon_dataset.sample_sequences))
+        train_indices, test_indices = group_shuffle_split(
+            [x[1]["id"] for x in sequences], train_size=0.8, random_state=0
+        )
+
+        # based on train_indices select target values
+        self.dgtl_typhoon_targets = self.dgtl_typhoon_dataset.aux_df.iloc[train_indices]
+
+        # Create a DataFrame from sequences
+        train_sequences = [sequences[i] for i in train_indices]
+        train_sequence_df = pd.DataFrame([(x[1]['id'], seq_id) for x in train_sequences for seq_id in x[1]['seq_id']], columns=['id', 'seq_id'])
+        train_sequence_df = pd.merge(train_sequence_df, self.dgtl_typhoon_dataset.aux_df, on=['id', 'seq_id'])
+
+        all_targets = np.concatenate([self.tc_targets, train_sequence_df["wind"].values])
+
+        self.target_mean = all_targets.mean()
+        self.target_std = all_targets.std()
+
+    def setup(self, stage: str) -> None:
+        """Set up datasets.
+
+        Args:
+            stage: Either 'fit', 'validate', 'test', or 'predict'.
+        """
+        
+        if stage in ["fit", "validate"]:
+            # setup Tropical cyclone dataset
+            train_indices, val_indices = group_shuffle_split(
+                self.tc_dataset.sequence_df.storm_id, test_size=0.20, random_state=0
+            )
+            validation_indices, calibration_indices = train_test_split(
+                val_indices, test_size=0.20, random_state=0
+            )
+
+            self.tc_train_dataset = Subset(self.tc_dataset, train_indices)
+            self.tc_val_dataset = Subset(self.tc_dataset, validation_indices)
+            self.tc_calibration_dataset = Subset(self.tc_dataset, calibration_indices)
+
+            # setup Digital Typhoon dataset
+
+            # first train and validation
+            sequences = list(enumerate(self.dgtl_typhoon_dataset.sample_sequences))
+            train_indices, test_indices = group_shuffle_split(
+                [x[1]["id"] for x in sequences], train_size=0.8, random_state=0
+            )
+            index_mapping_train = {
+                new_index: original_index
+                for new_index, original_index in enumerate(train_indices)
+            }
+            train_sequences = [self.dgtl_typhoon_dataset.sample_sequences[i] for i in train_indices]
+            train_sequences = list(enumerate(train_sequences))
+            train_indices, val_indices = group_shuffle_split(
+                [x[1]["id"] for x in train_sequences], train_size=0.8, random_state=0
+            )
+            train_indices = [index_mapping_train[i] for i in train_indices]
+            val_indices = [index_mapping_train[i] for i in val_indices]
+
+            # then validation and calibration split
+            index_mapping_val = {
+                new_index: original_index for new_index, original_index in enumerate(val_indices)
+            }
+            val_sequences = [self.dgtl_typhoon_dataset.sample_sequences[i] for i in val_indices]
+            val_sequences = list(enumerate(val_sequences))
+            val_indices, calibration_indices = group_shuffle_split(
+                [x[1]["id"] for x in val_sequences], train_size=0.8, random_state=0
+            )
+            val_indices = [index_mapping_val[i] for i in val_indices]
+            calibration_indices = [index_mapping_val[i] for i in calibration_indices]
+
+            # Create train val subset dataset
+            self.dgtl_train_dataset = Subset(self.dgtl_typhoon_dataset, train_indices)
+            self.dgtl_val_dataset = Subset(self.dgtl_typhoon_dataset, val_indices)
+            self.dgtl_calibration_dataset = Subset(self.dgtl_typhoon_dataset, calibration_indices)
+
+
+            # concat datasets
+            self.train_dataset = ConcatDataset([self.tc_train_dataset, self.dgtl_train_dataset])
+            self.val_dataset = ConcatDataset([self.tc_val_dataset, self.dgtl_val_dataset])
+            self.calibration_dataset = ConcatDataset([self.tc_calibration_dataset, self.dgtl_calibration_dataset])
+
+        if stage in ["test"]:
+            self.tc_test_dataset = TropicalCycloneSequence(
+                split="test", **self.tc_args
+            )
+            self.dgtl_test_dataset = Subset(self.dgtl_typhoon_dataset, test_indices)
+
+            
+
+    def calibration_dataloader(self) -> torch.utils.data.DataLoader:
+        """Return a dataloader for the calibration dataset."""
+        return DataLoader(
+            self.calibration_dataset,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            collate_fn=self.collate_fn,
+            shuffle=False,
+        )
+
+    def _dataloader_factory(self, split: str) -> DataLoader[dict[str, Tensor]]:
+        """Implement one or more PyTorch DataLoaders.
+
+        Args:
+            split: Either 'train', 'val', 'test', or 'predict'.
+
+        Returns:
+            A collection of data loaders specifying samples.
+
+        Raises:
+            MisconfigurationException: If :meth:`setup` does not define a
+                dataset or sampler, or if the dataset or sampler has length 0.
+        """
+        dataset = self._valid_attribute(f"{split}_dataset", "dataset")
+        batch_size = self._valid_attribute(f"{split}_batch_size", "batch_size")
+        return DataLoader(
+            dataset=dataset,
+            batch_size=batch_size,
+            shuffle=split == "train",
+            num_workers=self.num_workers,
+            collate_fn=combined_collate_fn,
+        )
+
+    def on_after_batch_transfer(
+        self, batch: Dict[str, Tensor], dataloader_idx: int
+    ) -> Dict[str, Tensor]:
+        """Apply batch augmentations to the batch after it is transferred to the device.
+
+        Args:
+            batch: A batch of data that needs to be altered or augmented.
+            dataloader_idx: The index of the dataloader to which the batch belongs.
+
+        Returns:
+            A batch of data.
+        """
+        # if self.target_mean.device != batch["input"].device:
+        #     if self.target_mean.device.type == "cpu":
+        #         self.target_mean = self.target_mean.to(batch["input"].device)
+        #         self.target_std = self.target_std.to(batch["input"].device)
+        #     elif self.target_mean.device.type == "cuda":
+        #         batch["input"] = batch["input"].to(self.target_mean.device)
+        #            batch["target"] = batch["target"].to(self.target_mean.device)
+        current_aug = self.train_aug if self.trainer.training else self.aug
+        if self.task == "regression":
+            new_batch = {
+                "input": current_aug({"input": batch["input"].float()})["input"],
+                "target": (batch["target"].float() - self.target_mean)
+                / self.target_std,
+            }
+        else:
+            new_batch = {
+                "input": current_aug({"input": batch["input"].float()})["input"],
+                "target": batch["target"].long(),
+            }
+
+        # add back all other keys
+        for key, value in batch.items():
+            if key not in ["input", "target"]:
+                new_batch[key] = value
+        return new_batch
 
 
 class TropicalCycloneSequenceDataModule(NonGeoDataModule):
@@ -58,8 +279,8 @@ class TropicalCycloneSequenceDataModule(NonGeoDataModule):
         self.target_std = torch.Tensor([self.dataset.target_std])
 
         self.train_aug = AugmentationSequential(
-            K.Normalize(mean=self.mean, std=self.std),
-            K.Normalize(mean=self.input_mean, std=self.input_std),
+            # K.Normalize(mean=self.mean, std=self.std),
+            # K.Normalize(mean=self.input_mean, std=self.input_std),
             K.Resize(224),
             K.RandomHorizontalFlip(p=0.5),
             K.RandomVerticalFlip(p=0.5),
@@ -69,8 +290,8 @@ class TropicalCycloneSequenceDataModule(NonGeoDataModule):
         )
 
         self.aug = AugmentationSequential(
-            K.Normalize(mean=self.mean, std=self.std),
-            K.Normalize(mean=self.input_mean, std=self.input_std),
+            # K.Normalize(mean=self.mean, std=self.std),
+            # K.Normalize(mean=self.input_mean, std=self.input_std),
             K.Resize(224),
             data_keys=["input"],
         )
@@ -92,18 +313,11 @@ class TropicalCycloneSequenceDataModule(NonGeoDataModule):
                 val_indices, test_size=0.20, random_state=0
             )
 
-            # print("LENGTH INSIDE SETUP")
-            # print("LENGTH indices", len(train_indices))
-            # print("LENGTH indices", len(validation_indices))
-            # print("LENGTH indices", len(calibration_indices))
 
             self.train_dataset = Subset(self.dataset, train_indices)
             self.val_dataset = Subset(self.dataset, validation_indices)
             self.calibration_dataset = Subset(self.dataset, calibration_indices)
 
-            # print("LENGTH train", len(self.train_dataset))
-            # print("LENGTH val", len(self.val_dataset))
-            # print("LENGTH calibration", len(self.calibration_dataset))
         if stage in ["test"]:
             self.test_dataset = TropicalCycloneSequence(
                 split="test", task=self.task, **self.kwargs
@@ -330,7 +544,7 @@ class MyDigitalTyphoonAnalysisDataModule(NonGeoDataModule):
         )
         batch["input"] = (batch["input"] - self.min_input_clamp) / (
             self.max_input_clamp - self.min_input_clamp
-        )
+        )   
 
         input = self.aug({"input": batch["input"].float()})["input"]
         # input = torch.clamp(input, min=-5, max=5)
@@ -345,3 +559,27 @@ class MyDigitalTyphoonAnalysisDataModule(NonGeoDataModule):
             if key not in ["input", "target"]:
                 new_batch[key] = value
         return new_batch
+
+dm = CombinedTCDataModule(
+    task="regression", 
+    batch_size=128, 
+    num_workers=12,
+    tc_args={
+        "root": "/p/project/hai_uqmethodbox/data/tropical_cyclone",
+        "min_wind_speed": 0
+    },
+    dgtl_typhoon_args={
+        "root": "/p/project/hai_uqmethodbox/data/digital_typhoon",
+        "min_feature_value": {
+            "wind": 0
+        },
+        "targets": ["wind"]
+    }
+)
+dm.setup("fit")
+
+train_dataloader = dm.train_dataloader()
+
+from tqdm import tqdm
+for i, batch in tqdm(enumerate(train_dataloader)):
+    continue

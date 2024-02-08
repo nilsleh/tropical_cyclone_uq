@@ -38,6 +38,8 @@ class TropicalCycloneSequence(TropicalCyclone):
         min_wind_speed: float = 0.0,
         task: str = "regression",
         seq_len: int = 3,
+        seq_gap: int = 1,
+        class_bin_size: int = 5,
         download: bool = False,
         api_key: Optional[str] = None,
         checksum: bool = False,
@@ -67,7 +69,21 @@ class TropicalCycloneSequence(TropicalCyclone):
         self.task = task
         self.min_wind_speed = min_wind_speed
         self.seq_len = seq_len
+        self.seq_gap = seq_gap
+        self.class_bin_size = class_bin_size
         self.sequence_df = self.construct_sequences()
+
+    def compute_wind_speed_bins(self) -> list[int]:
+        """Compute wind speed bins for classification task on train set."""
+        df = pd.read_csv(os.path.join(self.root, "train_info.csv"))
+        df = df[df["wind_speed"] >= self.min_wind_speed]
+        return list(
+            range(
+                0,
+                int(df["wind_speed"].max()) + self.class_bin_size,
+                self.class_bin_size,
+            )
+        )
 
     def construct_sequences(self) -> list[list[str]]:
         """Construct sequence collection for data loading.
@@ -97,7 +113,19 @@ class TropicalCycloneSequence(TropicalCyclone):
                     return i
             return len(filtered_class_bins) - 1
 
-        df["class_index"] = df["wind_speed"].apply(assign_class)
+        df["storm_category"] = df["wind_speed"].apply(assign_class)
+
+        # the length also dictates the number of classes for the classification task
+        self.wind_speed_bins = self.compute_wind_speed_bins()
+        self.num_classes = len(self.wind_speed_bins)
+
+        df["wind_bins"] = pd.cut(
+            df["wind_speed"],
+            self.wind_speed_bins,
+            labels=False,
+            include_lowest=True,
+            right=False,
+        )
 
         self.class_to_name = {
             i: class_name for i, class_name in enumerate(filtered_class_bins.keys())
@@ -112,12 +140,15 @@ class TropicalCycloneSequence(TropicalCyclone):
         self.target_mean = df["wind_speed"].mean()
         self.target_std = df["wind_speed"].std()
 
-        def get_subsequences(df: pd.DataFrame, k: int) -> list[dict[str, list[int]]]:
+        def get_subsequences(
+            df: pd.DataFrame, k: int, gap: int
+        ) -> list[dict[str, list[int]]]:
             """Generate all possible subsequences of length k for a given group.
 
             Args:
                 df: grouped dataframe of a single typhoon
                 k: length of the subsequences to generate
+                gap: gap between subsequences
 
             Returns:
                 list of all possible subsequences of length k for a given typhoon id
@@ -126,7 +157,8 @@ class TropicalCycloneSequence(TropicalCyclone):
             max_seq_id = df["seq_id"].max()
             # generate possible subsquences of length k for the group
             subsequences = [
-                list(range(i, i + k)) for i in range(min_seq_id, max_seq_id - k + 2)
+                list(range(i, i + k))
+                for i in range(min_seq_id, max_seq_id - k + 2, gap)
             ]
             filtered_subsequences: list[list[int]] = [
                 subseq for subseq in subsequences if set(subseq).issubset(df["seq_id"])
@@ -138,8 +170,8 @@ class TropicalCycloneSequence(TropicalCyclone):
                 if subseq
             ]
 
-            class_labels = [
-                df.loc[df["seq_id"] == subseq[-1], "class_index"].values[0]
+            wind_bins = [
+                df.loc[df["seq_id"] == subseq[-1], "wind_bins"].values[0]
                 for subseq in filtered_subsequences
                 if subseq
             ]
@@ -148,17 +180,19 @@ class TropicalCycloneSequence(TropicalCyclone):
                 "storm_id": df["storm_id"].iloc[0],
                 "subsequences": filtered_subsequences,
                 "wind_speed": wind_speeds,
-                "class_label": class_labels,
+                "wind_bins": wind_bins,
             }
 
         # Group by 'object_id' and find consecutive triplets for each group
         cons_sequences = (
-            df.groupby("storm_id").apply(get_subsequences, k=self.seq_len).tolist()
+            df.groupby("storm_id")
+            .apply(get_subsequences, k=self.seq_len, gap=self.seq_gap)
+            .tolist()
         )
         # dropna the empty sequences
         sequence_df = (
             pd.DataFrame(cons_sequences)
-            .explode(["subsequences", "wind_speed", "class_label"])
+            .explode(["subsequences", "wind_speed", "wind_bins"])
             .reset_index(drop=True)
             .dropna()
         )
@@ -199,7 +233,7 @@ class TropicalCycloneSequence(TropicalCyclone):
 
         if self.task == "classification":
             sample["target"] = (
-                torch.tensor(int(self.sequence_df.iloc[index].class_label))
+                torch.tensor(int(self.sequence_df.iloc[index].wind_bins))
                 .squeeze()
                 .long()
             )
@@ -214,7 +248,10 @@ class TropicalCycloneSequence(TropicalCyclone):
         sample["storm_id"] = storm_id
         # already stored under "target"
         del sample["label"]
-        del sample["wind_speed"]
+        # del sample["wind_speed"]
+
+        # normalize image to 0-1
+        sample["input"] = sample["input"] / 255.0
 
         if self.transforms is not None:
             sample = self.transforms(sample)
