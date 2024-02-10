@@ -11,19 +11,11 @@ from lightning.pytorch.callbacks import (
     LearningRateMonitor,
     ModelCheckpoint,
 )
+from torchvision.transforms import Resize
 from omegaconf.errors import ConfigAttributeError
 from lightning.pytorch.loggers import CSVLogger, WandbLogger  # noqa: F401
 from omegaconf import OmegaConf
 
-
-def collate_fn(batch: list[dict[str, torch.Tensor]]):
-    """Collate fn to include augmentations."""
-    images = [item["image"] for item in batch]
-    labels = [item["label"] for item in batch]
-
-    inputs = torch.stack(images)
-    targets = torch.stack(labels)
-    return {"input": inputs, "target": targets}
 
 
 def create_experiment_dir(config: dict[str, Any]) -> str:
@@ -105,14 +97,9 @@ if __name__ == "__main__":
     datamodule = instantiate(full_config.datamodule)
     datamodule.setup("fit")
 
-    # if "DigitalTyphoon" in full_config.datamodule["_target_"]:
-    #     datamodule.collate_fn = collate_fn
-    #     datamodule.aug.data_keys = ["input"]
-    # set collate fn for Digital Typhoon
-
     # store predictions for training and test set
-    target_mean = datamodule.target_mean.cpu()
-    target_std = datamodule.target_std.cpu()
+    target_mean = datamodule.target_mean
+    target_std = datamodule.target_std
 
     # Also store predictions for training
     def collate(batch: list[dict[str, torch.Tensor]]):
@@ -120,18 +107,34 @@ if __name__ == "__main__":
         images = [item["input"] for item in batch]
         labels = [item["target"] for item in batch]
 
-        inputs = torch.stack(images)
+        try:
+            inputs = torch.stack(images)
+        except RuntimeError:
+            resize = Resize(224, antialias=False)
+            inputs = torch.stack([resize(x["input"]) for x in batch])
+
         targets = torch.stack(labels)
+
+        if hasattr(datamodule, "aug"):
+            input = datamodule.aug({"input": inputs.float()})["input"]
+        else:
+            input = inputs.float()
+
         if datamodule.task == "regression":
-            return {
-                "input": datamodule.aug({"input": inputs.float()})["input"],
+            new_batch =  {
+                "input": input,
                 "target": (targets[..., -1:].float() - target_mean) / target_std,
             }
         else:
-            return {
-                "input": datamodule.aug({"input": inputs.float()})["input"],
+            new_batch =  {
+                "input": input,
                 "target": targets.squeeze().long(),
             }
+            
+        new_batch["storm_ids"] = [x.get("storm_id") for x in batch]
+        new_batch["indices"] = [x.get("index") for x in batch]
+        new_batch["wind_speeds"] = [int(x["wind_speed"]) for x in batch]
+        return new_batch
 
     calib_loader = datamodule.calibration_dataloader()
     calib_loader.collate_fn = collate
@@ -166,7 +169,7 @@ if __name__ == "__main__":
         else:
             model = instantiate(full_config.uq_method)
             trainer.validate(model, datamodule=datamodule)
-            
+
         model.pred_file_name = "preds_test.csv"
         trainer.test(model, datamodule=datamodule)
     else:
@@ -210,27 +213,8 @@ if __name__ == "__main__":
         trainer.test(ckpt_path="best", datamodule=datamodule)
 
     # store predictions for training and test set
-    target_mean = datamodule.target_mean.cpu()
-    target_std = datamodule.target_std.cpu()
-
-    # Also store predictions for training
-    def collate(batch: list[dict[str, torch.Tensor]]):
-        """Collate fn to include augmentations."""
-        images = [item["input"] for item in batch]
-        labels = [item["target"] for item in batch]
-
-        inputs = torch.stack(images)
-        targets = torch.stack(labels)
-        if datamodule.task == "regression":
-            return {
-                "input": datamodule.aug({"input": inputs.float()})["input"],
-                "target": (targets[..., -1:].float() - target_mean) / target_std,
-            }
-        else:
-            return {
-                "input": datamodule.aug({"input": inputs.float()})["input"],
-                "target": targets.squeeze().long(),
-            }
+    target_mean = datamodule.target_mean
+    target_std = datamodule.target_std
 
     # train dataset results
     model.pred_file_name = "preds_train.csv"

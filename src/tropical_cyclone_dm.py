@@ -54,16 +54,11 @@ class CombinedTCDataModule(NonGeoDataModule):
         self.dgtl_typhoon_args = dgtl_typhoon_args
         self.dgtl_typhoon_args["task"] = self.task
 
-        self.train_aug = AugmentationSequential(
+        self.aug = AugmentationSequential(
             K.RandomHorizontalFlip(p=0.5),
             K.RandomVerticalFlip(p=0.5),
             K.RandomRotation(degrees=(90, 91), p=0.5),
             K.RandomRotation(degrees=(270, 271), p=0.5),
-            data_keys=["input"],
-        )
-
-        self.aug = AugmentationSequential(
-            K.Resize(224),
             data_keys=["input"],
         )
 
@@ -208,23 +203,20 @@ class CombinedTCDataModule(NonGeoDataModule):
         Returns:
             A batch of data.
         """
-        # if self.target_mean.device != batch["input"].device:
-        #     if self.target_mean.device.type == "cpu":
-        #         self.target_mean = self.target_mean.to(batch["input"].device)
-        #         self.target_std = self.target_std.to(batch["input"].device)
-        #     elif self.target_mean.device.type == "cuda":
-        #         batch["input"] = batch["input"].to(self.target_mean.device)
-        #            batch["target"] = batch["target"].to(self.target_mean.device)
-        current_aug = self.train_aug if self.trainer.training else self.aug
+        if self.trainer.training:
+            input = self.aug({"input": batch["input"].float()})["input"]
+        else:
+            input = batch["input"].float()
+        
         if self.task == "regression":
             new_batch = {
-                "input": current_aug({"input": batch["input"].float()})["input"],
+                "input": input,
                 "target": (batch["target"].float() - self.target_mean)
                 / self.target_std,
             }
         else:
             new_batch = {
-                "input": current_aug({"input": batch["input"].float()})["input"],
+                "input": input,
                 "target": batch["target"].long(),
             }
 
@@ -273,12 +265,11 @@ class TropicalCycloneSequenceDataModule(NonGeoDataModule):
 
         self.dataset = TropicalCycloneSequence(split="train", **self.kwargs)
         # mean and std can change based on setup because min wind speed is a variable
-        self.target_mean = torch.Tensor([self.dataset.target_mean])
-        self.target_std = torch.Tensor([self.dataset.target_std])
+
+        self.target_mean = self.dataset.target_mean
+        self.target_std = self.dataset.target_std
 
         self.train_aug = AugmentationSequential(
-            # K.Normalize(mean=self.mean, std=self.std),
-            # K.Normalize(mean=self.input_mean, std=self.input_std),
             K.Resize(224),
             K.RandomHorizontalFlip(p=0.5),
             K.RandomVerticalFlip(p=0.5),
@@ -287,12 +278,6 @@ class TropicalCycloneSequenceDataModule(NonGeoDataModule):
             data_keys=["input"],
         )
 
-        self.aug = AugmentationSequential(
-            # K.Normalize(mean=self.mean, std=self.std),
-            # K.Normalize(mean=self.input_mean, std=self.input_std),
-            K.Resize(224),
-            data_keys=["input"],
-        )
 
     def setup(self, stage: str) -> None:
         """Set up datasets.
@@ -368,23 +353,20 @@ class TropicalCycloneSequenceDataModule(NonGeoDataModule):
         Returns:
             A batch of data.
         """
-        if self.target_mean.device != batch["input"].device:
-            if self.target_mean.device.type == "cpu":
-                self.target_mean = self.target_mean.to(batch["input"].device)
-                self.target_std = self.target_std.to(batch["input"].device)
-            elif self.target_mean.device.type == "cuda":
-                batch["input"] = batch["input"].to(self.target_mean.device)
-                batch["target"] = batch["target"].to(self.target_mean.device)
+        if self.trainer.training:
+            input = self.train_aug({"input": batch["input"].float()})["input"]
+        else:
+            input = batch["input"].float()
 
         if self.task == "regression":
             new_batch = {
-                "input": self.aug({"input": batch["input"].float()})["input"],
+                "input": input,
                 "target": (batch["target"].float() - self.target_mean)
                 / self.target_std,
             }
         else:
             new_batch = {
-                "input": self.aug({"input": batch["input"].float()})["input"],
+                "input": input,
                 "target": batch["target"].long(),
             }
 
@@ -404,6 +386,7 @@ class MyDigitalTyphoonAnalysis(DigitalTyphoonAnalysis):
         sample["target"] = sample.pop("label")
         sample["wind_speed"] = int(sample.pop("wind"))
         sample["index"] = index
+        del sample["seq_id"]
         return sample
 
 
@@ -440,14 +423,27 @@ class MyDigitalTyphoonAnalysisDataModule(NonGeoDataModule):
         ), f"Please choose from {self.valid_split_types}"
         self.split_by = split_by
 
-        # Rename 'image' and 'mask' keys
-        self.aug = AugmentationSequential(
-            # K.Normalize(mean=self.mean, std=self.std),
+
+        self.train_aug = AugmentationSequential(
             K.Resize(224),
+            K.RandomHorizontalFlip(p=0.5),
+            K.RandomVerticalFlip(p=0.5),
+            K.RandomRotation(degrees=(90, 91), p=0.5),
+            K.RandomRotation(degrees=(270, 271), p=0.5),
             data_keys=["input"],
         )
 
-        # self.aug.data_keys = ['input']
+        self.dataset = MyDigitalTyphoonAnalysis(**kwargs)
+
+        sequences = list(enumerate(self.dataset.sample_sequences))
+        train_indices, test_indices = group_shuffle_split(
+            [x[1]["id"] for x in sequences], train_size=0.8, random_state=0
+        )
+
+        # based on train_indices select target values
+        self.dgtl_typhoon_targets = self.dataset.aux_df.iloc[train_indices]["wind"].values
+        self.target_mean = self.dgtl_typhoon_targets.mean()
+        self.target_std = self.dgtl_typhoon_targets.std()
 
     def split_dataset(self, dataset: MyDigitalTyphoonAnalysis):
         """Split dataset into two parts.
@@ -486,37 +482,57 @@ class MyDigitalTyphoonAnalysisDataModule(NonGeoDataModule):
         Args:
             stage: Either 'fit', 'validate', 'test', or 'predict'.
         """
-        self.dataset = MyDigitalTyphoonAnalysis(**self.kwargs)
 
         self.task = self.dataset.task
 
-        train_sequences, test_sequences = self.split_dataset(self.dataset)
+
+        dgtl_sequences = list(enumerate(self.dataset.sample_sequences))
+        dgtl_train_indices, test_indices = group_shuffle_split(
+            [x[1]["id"] for x in dgtl_sequences], train_size=0.8, random_state=0
+        )
 
         if stage in ["fit", "validate"]:
-            # resplit the train indices into train and val
-            self.dataset.sample_sequences = train_sequences
-            train_sequences, val_sequences = self.split_dataset(self.dataset)
-
-            # create training dataset
-            self.train_dataset = MyDigitalTyphoonAnalysis(**self.kwargs)
-            self.train_dataset.sample_sequences = train_sequences
-
-            # target normalization statistics
-            # TODO normalization of all statistics
-            self.target_mean = torch.tensor(
-                self.train_dataset.aux_df[self.dataset.target[0]].mean()
+            index_mapping_train = {
+                new_index: original_index
+                for new_index, original_index in enumerate(dgtl_train_indices)
+            }
+            train_sequences = [self.dataset.sample_sequences[i] for i in dgtl_train_indices]
+            train_sequences = list(enumerate(train_sequences))
+            train_indices, val_indices = group_shuffle_split(
+                [x[1]["id"] for x in train_sequences], train_size=0.8, random_state=0
             )
-            self.target_std = torch.tensor(
-                self.train_dataset.aux_df[self.dataset.target[0]].std()
-            )
+            train_indices = [index_mapping_train[i] for i in train_indices]
+            val_indices = [index_mapping_train[i] for i in val_indices]
 
-            # create validation dataseqt
-            self.val_dataset = MyDigitalTyphoonAnalysis(**self.kwargs)
-            self.val_dataset.sample_sequences = val_sequences
+            # then validation and calibration split
+            index_mapping_val = {
+                new_index: original_index for new_index, original_index in enumerate(val_indices)
+            }
+            val_sequences = [self.dataset.sample_sequences[i] for i in val_indices]
+            val_sequences = list(enumerate(val_sequences))
+            val_indices, calibration_indices = group_shuffle_split(
+                [x[1]["id"] for x in val_sequences], train_size=0.8, random_state=0
+            )
+            val_indices = [index_mapping_val[i] for i in val_indices]
+            calibration_indices = [index_mapping_val[i] for i in calibration_indices]
+
+            # Create train val subset dataset
+            self.train_dataset = Subset(self.dataset, train_indices)
+            self.val_dataset = Subset(self.dataset, val_indices)
+            self.calibration_dataset = Subset(self.dataset, calibration_indices)
 
         if stage in ["test"]:
-            self.test_dataset = MyDigitalTyphoonAnalysis(**self.kwargs)
-            self.test_dataset.sample_sequences = test_sequences
+            self.test_dataset = Subset(self.dataset, test_indices)
+
+    def calibration_dataloader(self) -> torch.utils.data.DataLoader:
+        """Return a dataloader for the calibration dataset."""
+        return DataLoader(
+            self.calibration_dataset,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            collate_fn=self.collate_fn,
+            shuffle=False,
+        )
 
     def on_after_batch_transfer(
         self, batch: Dict[str, Tensor], dataloader_idx: int
@@ -530,29 +546,30 @@ class MyDigitalTyphoonAnalysisDataModule(NonGeoDataModule):
         Returns:
             A batch of data.
         """
-        if self.target_mean.device != batch["input"].device:
-            if self.target_mean.device.type == "cpu":
-                self.target_mean = self.target_mean.to(batch["input"].device)
-                self.target_std = self.target_std.to(batch["input"].device)
-            elif self.target_mean.device.type == "cuda":
-                batch["input"] = batch["input"].to(self.target_mean.device)
-                batch["target"] = batch["target"].to(self.target_mean.device)
-
         # https://github.com/kitamoto-lab/benchmarks/blob/1bdbefd7c570cb1bdbdf9e09f9b63f7c22bbdb27/analysis/regression/FrameDatamodule.py#L94
         batch["input"] = torch.clamp(
             batch["input"], self.min_input_clamp, self.max_input_clamp
         )
         batch["input"] = (batch["input"] - self.min_input_clamp) / (
             self.max_input_clamp - self.min_input_clamp
-        )   
+        ) 
 
-        input = self.aug({"input": batch["input"].float()})["input"]
-        # input = torch.clamp(input, min=-5, max=5)
+        if self.trainer.training:
+            input = self.train_aug({"input": batch["input"].float()})["input"]
+        else:
+            input = batch["input"].float()
 
-        new_batch = {
-            "input": input,
-            "target": (batch["target"].float() - self.target_mean) / self.target_std,
-        }
+        if self.task == "regression":
+            new_batch = {
+                "input": input,
+                "target": (batch["target"].float() - self.target_mean)
+                / self.target_std,
+            }
+        else:
+            new_batch = {
+                "input": input,
+                "target": batch["target"].long(),
+            }
 
         # add back all other keys
         for key, value in batch.items():
