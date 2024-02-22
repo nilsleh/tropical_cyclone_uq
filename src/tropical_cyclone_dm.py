@@ -20,9 +20,9 @@ from torchgeo.datamodules import DigitalTyphoonAnalysisDataModule
 
 def combined_collate_fn(batch):
     """Combined collate fn."""
-    resize = Resize(224, antialias=False)
+    # resize = Resize(224, antialias=False)
     # combine things from "input" and "image" keys
-    inputs = [resize(x["input"]) for x in batch]
+    inputs = [x["input"] for x in batch]
 
     
     # combine things from "target" and "label" keys
@@ -378,11 +378,13 @@ class TropicalCycloneSequenceDataModule(NonGeoDataModule):
 
 
 class MyDigitalTyphoonAnalysis(DigitalTyphoonAnalysis):
+    resize = Resize(224, antialias=False)
     def __getitem__(self, index: int):
         sample = super().__getitem__(index)
 
+
         # Rename 'image' and 'mask' keys
-        sample["input"] = sample.pop("image")
+        sample["input"] = self.resize(sample.pop("image"))
         sample["target"] = sample.pop("label")
         sample["wind_speed"] = int(sample.pop("wind"))
         sample["index"] = index

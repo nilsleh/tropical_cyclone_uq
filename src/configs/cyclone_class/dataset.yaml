@@ -4,4 +4,5 @@ datamodule:
   task: "classification"
   batch_size: 256
   num_workers: 12
-  min_wind_speed: 34
+  min_wind_speed: 0
+  class_bin_size: 5

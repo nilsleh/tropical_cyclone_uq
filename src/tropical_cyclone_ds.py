@@ -13,6 +13,7 @@ from matplotlib.figure import Figure
 from PIL import Image
 from torch import Tensor
 from torchgeo.datasets import TropicalCyclone
+from torchvision.transforms import Resize
 
 
 class TropicalCycloneSequence(TropicalCyclone):
@@ -72,6 +73,8 @@ class TropicalCycloneSequence(TropicalCyclone):
         self.seq_gap = seq_gap
         self.class_bin_size = class_bin_size
         self.sequence_df = self.construct_sequences()
+
+        self.resize = Resize(224, antialias=False)
 
     def compute_wind_speed_bins(self) -> list[int]:
         """Compute wind speed bins for classification task on train set."""
@@ -250,8 +253,9 @@ class TropicalCycloneSequence(TropicalCyclone):
         del sample["label"]
         # del sample["wind_speed"]
 
+
         # normalize image to 0-1
-        sample["input"] = sample["input"] / 255.0
+        sample["input"] = self.resize(sample["input"] / 255.0)
 
         if self.transforms is not None:
             sample = self.transforms(sample)
