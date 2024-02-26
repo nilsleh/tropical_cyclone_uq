@@ -37,6 +37,7 @@ class TropicalCycloneSequence(TropicalCyclone):
         root: str = "data",
         split: str = "train",
         min_wind_speed: float = 0.0,
+        img_size: int = 224,
         task: str = "regression",
         seq_len: int = 3,
         seq_gap: int = 1,
@@ -74,7 +75,7 @@ class TropicalCycloneSequence(TropicalCyclone):
         self.class_bin_size = class_bin_size
         self.sequence_df = self.construct_sequences()
 
-        self.resize = Resize(224, antialias=False)
+        self.resize = Resize(img_size, antialias=False)
 
     def compute_wind_speed_bins(self) -> list[int]:
         """Compute wind speed bins for classification task on train set."""

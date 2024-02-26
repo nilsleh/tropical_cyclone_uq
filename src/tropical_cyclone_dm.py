@@ -245,6 +245,7 @@ class TropicalCycloneSequenceDataModule(NonGeoDataModule):
         task: str = "regression",
         batch_size: int = 64,
         num_workers: int = 0,
+        img_size: int = 224,
         **kwargs: Any,
     ) -> None:
         """Initialize a new TropicalCycloneDataModule instance.
@@ -262,15 +263,16 @@ class TropicalCycloneSequenceDataModule(NonGeoDataModule):
             task in self.valid_tasks
         ), f"invalid task '{task}', please choose one of {self.valid_tasks}"
         self.task = task
+        self.img_size = img_size
 
-        self.dataset = TropicalCycloneSequence(split="train", **self.kwargs)
+        self.dataset = TropicalCycloneSequence(split="train", img_size=img_size, **self.kwargs)
         # mean and std can change based on setup because min wind speed is a variable
 
         self.target_mean = self.dataset.target_mean
         self.target_std = self.dataset.target_std
 
         self.train_aug = AugmentationSequential(
-            K.Resize(224),
+            K.Resize(img_size),
             K.RandomHorizontalFlip(p=0.5),
             K.RandomVerticalFlip(p=0.5),
             K.RandomRotation(degrees=(90, 91), p=0.5),
@@ -287,7 +289,7 @@ class TropicalCycloneSequenceDataModule(NonGeoDataModule):
         """
         if stage in ["fit", "validate"]:
             self.dataset = TropicalCycloneSequence(
-                split="train", task=self.task, **self.kwargs
+                split="train", img_size=self.img_size, task=self.task, **self.kwargs
             )
             train_indices, val_indices = group_shuffle_split(
                 self.dataset.sequence_df.storm_id, test_size=0.20, random_state=0
@@ -303,10 +305,8 @@ class TropicalCycloneSequenceDataModule(NonGeoDataModule):
 
         if stage in ["test"]:
             self.test_dataset = TropicalCycloneSequence(
-                split="test", task=self.task, **self.kwargs
+                split="test", img_size=self.img_size, task=self.task, **self.kwargs
             )
-            # print("LENGTH INSIDE SETUP")
-            # print("LENGTH test", len(self.test_dataset))
 
     def calibration_dataloader(self) -> torch.utils.data.DataLoader:
         """Return a dataloader for the calibration dataset."""
@@ -378,7 +378,12 @@ class TropicalCycloneSequenceDataModule(NonGeoDataModule):
 
 
 class MyDigitalTyphoonAnalysis(DigitalTyphoonAnalysis):
-    resize = Resize(224, antialias=False)
+
+    def __init__(self, img_size, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.img_size = img_size
+        self.resize = Resize(img_size, antialias=False)
+
     def __getitem__(self, index: int):
         sample = super().__getitem__(index)
 
@@ -405,6 +410,7 @@ class MyDigitalTyphoonAnalysisDataModule(NonGeoDataModule):
         split_by: str = "time",
         batch_size: int = 64,
         num_workers: int = 0,
+        img_size: int = 224,
         **kwargs: Any,
     ) -> None:
         """Initialize a new DigitalTyphoonAnalysisDataModule instance.
@@ -427,7 +433,7 @@ class MyDigitalTyphoonAnalysisDataModule(NonGeoDataModule):
 
 
         self.train_aug = AugmentationSequential(
-            K.Resize(224),
+            K.Resize(img_size),
             K.RandomHorizontalFlip(p=0.5),
             K.RandomVerticalFlip(p=0.5),
             K.RandomRotation(degrees=(90, 91), p=0.5),
@@ -435,7 +441,7 @@ class MyDigitalTyphoonAnalysisDataModule(NonGeoDataModule):
             data_keys=["input"],
         )
 
-        self.dataset = MyDigitalTyphoonAnalysis(**kwargs)
+        self.dataset = MyDigitalTyphoonAnalysis(img_size=img_size, **kwargs)
 
         sequences = list(enumerate(self.dataset.sample_sequences))
         train_indices, test_indices = group_shuffle_split(
