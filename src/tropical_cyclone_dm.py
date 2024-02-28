@@ -3,6 +3,8 @@
 from typing import Any, Dict
 
 import kornia.augmentation as K
+import os
+from typing import Optional, Sequence, Callable
 import torch
 import pandas as pd
 from torch import Tensor
@@ -379,21 +381,88 @@ class TropicalCycloneSequenceDataModule(NonGeoDataModule):
 
 class MyDigitalTyphoonAnalysis(DigitalTyphoonAnalysis):
 
-    def __init__(self, img_size, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
+    def __init__(
+        self,
+        root: str = "data",
+        task: str = "regression",
+        features: Sequence[str] = ["wind"],
+        targets: list[str] = ["wind"],
+        sequence_length: int = 3,
+        min_feature_value: Optional[dict[str, float]] = None,
+        max_feature_value: Optional[dict[str, float]] = None,
+        seq_gap: int = 1,
+        class_bin_size: int = 5,
+        img_size: int = 224,
+        transforms: Optional[Callable[[dict[str, Tensor]], dict[str, Tensor]]] = None,
+        download: bool = False,
+        checksum: bool = False,
+    ) -> None:
+        self.seq_gap = seq_gap
+        self.class_bin_size = class_bin_size
+        self.img_size = img_size
+
+        super().__init__(root, task, features, targets, sequence_length, min_feature_value, max_feature_value, transforms, download, checksum)
+
         self.img_size = img_size
         self.resize = Resize(img_size, antialias=False)
+        self.wind_speed_bins = list(
+            range(
+                0,
+                int(self.aux_df["wind"].max()) + self.class_bin_size,
+                self.class_bin_size,
+            )
+        )
+        self.wind_speed_bins.append(self.aux_df["wind"].max() + self.class_bin_size)
+        self.num_classes = len(self.wind_speed_bins)
+
+        self.aux_df["wind_bins"] = pd.cut(
+            self.aux_df["wind"],
+            self.wind_speed_bins,
+            labels=False,
+            include_lowest=True,
+            right=False,
+        )
+
 
     def __getitem__(self, index: int):
-        sample = super().__getitem__(index)
+        sample_entry = self.sample_sequences[index]
+        sample_df = self.aux_df[
+            (self.aux_df["id"] == sample_entry["id"])
+            & (self.aux_df["seq_id"].isin(sample_entry["seq_id"]))
+        ]
 
+        sample = {"image": self._load_image(sample_df)}
+        # load features of the last image in the sequence
+        sample.update(
+            self._load_features(
+                os.path.join(
+                    self.root,
+                    self.data_root,
+                    "metadata",
+                    str(sample_df.iloc[-1]["id"]) + ".csv",
+                ),
+                sample_df.iloc[-1]["image_path"],
+            )
+        )
+        
 
-        # Rename 'image' and 'mask' keys
+        # torchgeo expects a single label
+        if self.task == "classification":
+            # print(sample_df)
+            sample["label"] = torch.Tensor([sample_df.iloc[-1]["wind_bins"]]).long().squeeze()
+        else:
+            sample["label"] = torch.Tensor([sample[target] for target in self.targets])
+        sample["storm_id"] = str(sample_df.iloc[-1]["id"])
+        # sample["seq_id"] = sample_entry["seq_id"]
+
+        if self.transforms is not None:
+            sample = self.transforms(sample)
+
         sample["input"] = self.resize(sample.pop("image"))
         sample["target"] = sample.pop("label")
         sample["wind_speed"] = int(sample.pop("wind"))
         sample["index"] = index
-        del sample["seq_id"]
+        # del sample["seq_id"]
         return sample
 
 

@@ -96,6 +96,7 @@ if __name__ == "__main__":
 
     datamodule = instantiate(full_config.datamodule)
     datamodule.setup("fit")
+    datamodule.aug.data_keys = ["input"]
 
     # store predictions for training and test set
     target_mean = datamodule.target_mean
@@ -104,36 +105,23 @@ if __name__ == "__main__":
     # Also store predictions for training
     def collate(batch: list[dict[str, torch.Tensor]]):
         """Collate fn to include augmentations."""
-        images = [item["input"] for item in batch]
-        labels = [item["target"] for item in batch]
-
-        try:
-            inputs = torch.stack(images)
-        except RuntimeError:
-            resize = Resize(224, antialias=False)
-            inputs = torch.stack([resize(x["input"]) for x in batch])
-
-        targets = torch.stack(labels)
-
-        if hasattr(datamodule, "aug"):
-            input = datamodule.aug({"input": inputs.float()})["input"]
-        else:
-            input = inputs.float()
+        inputs = torch.stack([item["input"] for item in batch])
+        targets = torch.stack([item["target"] for item in batch])
 
         if datamodule.task == "regression":
             new_batch =  {
-                "input": input,
+                "input": inputs,
                 "target": (targets[..., -1:].float() - target_mean) / target_std,
             }
         else:
             new_batch =  {
-                "input": input,
+                "input": inputs,
                 "target": targets.squeeze().long(),
             }
             
-        new_batch["storm_ids"] = [x.get("storm_id") for x in batch]
-        new_batch["indices"] = [x.get("index") for x in batch]
-        new_batch["wind_speeds"] = [int(x["wind_speed"]) for x in batch]
+        new_batch["storm_id"] = [x.get("storm_id") for x in batch]
+        new_batch["index"] = [x.get("index") for x in batch]
+        new_batch["wind_speed"] = [int(x["wind_speed"]) for x in batch]
         return new_batch
 
     calib_loader = datamodule.calibration_dataloader()
@@ -187,21 +175,29 @@ if __name__ == "__main__":
             num_classes = full_config.uq_method.feature_extractor.num_classes
 
         # prev_conv1 = model.conv1.weight.data.clone()
-        model.load_state_dict(torch.load(full_config.imagenet_ckpt))
+        
         # print(f"Weights are loaded if the first layer is not equal anymore, so torch equal should be False, got: {torch.equal(prev_conv1, model.conv1.weight.data)}")
         # replace last layer
-        if "resnet" in full_config.imagenet_ckpt:
-            model.fc = torch.nn.Linear(
-                in_features=model.fc.in_features,
-                out_features=num_classes,
-                bias=True,
-            )
-        elif "efficientnet_b0" in full_config.imagenet_ckpt:
-            model.classifier = torch.nn.Linear(
-                in_features=model.classifier.in_features,
-                out_features=num_classes,
-                bias=True,
-            )
+        # if "resnet18" in full_config.uq_method.model.model_name:
+        model.load_state_dict(torch.load(full_config.imagenet_ckpt))
+        model.fc = torch.nn.Linear(
+            in_features=model.fc.in_features,
+            out_features=num_classes,
+            bias=True,
+        )
+        # elif "efficientnet_b0" in full_config.uq_method.model.model_name:
+        #     model.load_state_dict(torch.load(full_config.imagenet_ckpt))
+        #     model.classifier = torch.nn.Linear(
+        #         in_features=model.classifier.in_features,
+        #         out_features=num_classes,
+        #         bias=True,
+        #     )
+        # elif "swin" in full_config.uq_method.model.model_name:
+        #     model.head.fc = torch.nn.Linear(
+        #         in_features=model.head.fc.in_features,
+        #         out_features=num_classes,
+        #         bias=True,
+        #     )
 
         try:
             model = instantiate(full_config.uq_method, model=model)
