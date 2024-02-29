@@ -77,7 +77,6 @@ class TropicalCycloneSequence(TropicalCyclone):
 
         self.resize = Resize(img_size, antialias=False)
 
-
     def compute_wind_speed_bins(self) -> list[int]:
         """Compute wind speed bins for classification task on train set."""
         df = pd.read_csv(os.path.join(self.root, "train_info.csv"))
@@ -254,7 +253,6 @@ class TropicalCycloneSequence(TropicalCyclone):
         # already stored under "target"
         del sample["label"]
         # del sample["wind_speed"]
-
 
         # normalize image to 0-1
         sample["input"] = self.resize(sample["input"] / 255.0)
