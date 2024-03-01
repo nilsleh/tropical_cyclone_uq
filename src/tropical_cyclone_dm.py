@@ -493,7 +493,7 @@ class MyDigitalTyphoonAnalysis(DigitalTyphoonAnalysis):
                 torch.Tensor([sample_df.iloc[-1]["wind_bins"]]).long().squeeze()
             )
         else:
-            sample["label"] = torch.Tensor([sample[target] for target in self.targets])
+            sample["label"] = torch.Tensor([sample["wind"]])
         sample["storm_id"] = str(sample_df.iloc[-1]["id"])
         # sample["seq_id"] = sample_entry["seq_id"]
 
@@ -710,6 +710,8 @@ class MyDigitalTyphoonAnalysisDataModule(NonGeoDataModule):
 #     }
 # )
 # dm.setup("fit")
+    
+ds = MyDigitalTyphoonAnalysis(root= "/p/project/hai_uqmethodbox/data/digital_typhoon", min_feature_value={"wind": 0}, targets=["wind"])
 
 # train_dataloader = dm.train_dataloader()
 
