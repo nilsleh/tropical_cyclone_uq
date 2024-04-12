@@ -1,27 +1,8 @@
-# datamodule:
-#   # _target_: tropical_cyclone_dm.TropicalCycloneSequenceDataModule
-#   # root: "/p/project/hai_uqmethodbox/data/tropical_cyclone"
-#   _target_: tropical_cyclone_dm.MyDigitalTyphoonAnalysisDataModule
-#   root: "/p/project/hai_uqmethodbox/data/digital_typhoon"
-#   task: "regression"
-#   batch_size: 128
-#   num_workers: 12
-#   min_feature_value:
-#     wind: 34
-#   split_by: typhoon_id
-#   # min_wind_speed: 0
-
 datamodule:
-  _target_: tropical_cyclone_dm.CombinedTCDataModule
+  _target_: tropical_cyclone_dm.TropicalCycloneSequenceDataModule
+  root: "/p/project/hai_uqmethodbox/data/tropical_cyclone"
   task: "regression"
-  batch_size: 256
+  batch_size: 128
   num_workers: 12
-  tc_args:
-    root: "/p/project/hai_uqmethodbox/data/tropical_cyclone"
-    min_wind_speed: 34
-  dgtl_typhoon_args:
-    root: "/p/project/hai_uqmethodbox/data/digital_typhoon"
-    min_feature_value:
-      wind: 34
-    targets:
-      - wind
+  min_feature_value:
+    wind: 34

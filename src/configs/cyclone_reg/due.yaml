@@ -2,14 +2,14 @@ uq_method:
   _target_: lightning_uq_box.uq_methods.DUERegression
   feature_extractor:
     _target_: timm.create_model
-    model_name: "resnet18"
+    model_name: resnet18
     num_classes: 10
     in_chans: 3
   gp_kernel: "RBF"
   n_inducing_points: 300
   input_size: 224
   optimizer:
-    _target_: torch.optim.Adam # can change optimizers here easily
+    _target_: torch.optim.AdamW # can change optimizers here easily
     _partial_: true
     lr: 0.0001
 

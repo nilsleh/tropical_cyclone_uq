@@ -5,7 +5,7 @@ uq_method:
     model_name: resnet18
     in_chans: 3
     num_classes: 4 # DER outputs
-  lr_scheduler:
-    _target_: torch.optim.lr_scheduler.CosineAnnealingLR
-    _partial_: true
-    T_max: 100
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: True
+    lr: 0.003

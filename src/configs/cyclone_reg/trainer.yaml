@@ -1,17 +1,18 @@
 experiment:
   experiment_name: "cyclone"
-  exp_dir: "/p/project/hai_uqmethodbox/experiment_output/test_reg/"
+  exp_dir: "/p/project/hai_uqmethodbox/experiment_output/reg_digital_34/"
 wandb:
-  project: tropical_cyclone
+  project: digital_typhoon
   entity: uq-regression
   mode: offline
 
 trainer:
   _target_: lightning.pytorch.Trainer
   accelerator: gpu
-  min_epochs: 50
-  max_epochs: 80
-  log_every_n_steps: 20
+  min_epochs: 20
+  max_epochs: 30
+  log_every_n_steps: 50
   enable_progress_bar: True
 
-resnet_ckpt: /p/project/hai_uqmethodbox/nils/old/lightning-uq-box/experiments/image-regression/configs/tropical_cyclone/resnet18.ckpt
+imagenet_ckpt: /p/project/hai_uqmethodbox/data/resnet18.ckpt
+# imagenet_ckpt: /p/project/hai_uqmethodbox/data/efficientnet_b0.ckpt

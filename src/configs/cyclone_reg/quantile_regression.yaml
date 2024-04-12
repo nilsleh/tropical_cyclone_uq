@@ -2,12 +2,16 @@ uq_method:
   _target_: lightning_uq_box.uq_methods.QuantileRegression
   model:
     _target_: timm.create_model
-    model_name: resnet18
+    model_name: resnet18 # efficientnet_b0
     in_chans: 3
     num_classes: 3
   loss_fn: 
-    _target_: lightning_uq_box.uq_methods.QuantileLoss
+    _target_: lightning_uq_box.uq_methods.PinballLoss
     quantiles:
     - 0.1
     - 0.5
     - 0.9
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: True
+    lr: 0.003

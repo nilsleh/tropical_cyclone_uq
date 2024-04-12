@@ -14,17 +14,80 @@ uq_method:
   posterior_mu_init: 0.0
   posterior_rho_init: -3.0
   bayesian_layer_type: "reparameterization"
-  beta: 1000
+  beta: 100
   burnin_epochs: 0
-  stochastic_module_names:
+  stochastic_module_names: # for resnet 18
   - layer4.1.conv1
   - layer4.1.conv2
   - fc
   optimizer:
-    _target_: torch.optim.Adam # can change optimizers here easily
-    _partial_: true
+    _target_: torch.optim.Adam
+    _partial_: True
     lr: 0.001
-  # lr_scheduler:
-  #   _target_: torch.optim.lr_scheduler.CosineAnnealingLR
-  #   _partial_: true
-  #   T_max: 100
+
+datamodule:
+  batch_size: 128
+
+
+# - conv1.weight
+# - bn1.weight
+# - bn1.bias
+# - layer1.0.conv1.weight
+# - layer1.0.bn1.weight
+# - layer1.0.bn1.bias
+# - layer1.0.conv2.weight
+# - layer1.0.bn2.weight
+# - layer1.0.bn2.bias
+# - layer1.1.conv1.weight
+# - layer1.1.bn1.weight
+# - layer1.1.bn1.bias
+# - layer1.1.conv2.weight
+# - layer1.1.bn2.weight
+# - layer1.1.bn2.bias
+# - layer2.0.conv1.weight
+# - layer2.0.bn1.weight
+# - layer2.0.bn1.bias
+# - layer2.0.conv2.weight
+# - layer2.0.bn2.weight
+# - layer2.0.bn2.bias
+# - layer2.0.downsample.0.weight
+# - layer2.0.downsample.1.weight
+# - layer2.0.downsample.1.bias
+# - layer2.1.conv1.weight
+# - layer2.1.bn1.weight
+# - layer2.1.bn1.bias
+# - layer2.1.conv2.weight
+# - layer2.1.bn2.weight
+# - layer2.1.bn2.bias
+# - layer3.0.conv1.weight
+# - layer3.0.bn1.weight
+# - layer3.0.bn1.bias
+# - layer3.0.conv2.weight
+# - layer3.0.bn2.weight
+# - layer3.0.bn2.bias
+# - layer3.0.downsample.0.weight
+# - layer3.0.downsample.1.weight
+# - layer3.0.downsample.1.bias
+# - layer3.1.conv1.weight
+# - layer3.1.bn1.weight
+# - layer3.1.bn1.bias
+# - layer3.1.conv2.weight
+# - layer3.1.bn2.weight
+# - layer3.1.bn2.bias
+# - layer4.0.conv1.weight
+# - layer4.0.bn1.weight
+# - layer4.0.bn1.bias
+# - layer4.0.conv2.weight
+# - layer4.0.bn2.weight
+# - layer4.0.bn2.bias
+# - layer4.0.downsample.0.weight
+# - layer4.0.downsample.1.weight
+# - layer4.0.downsample.1.bias
+# - layer4.1.conv1.weight
+# - layer4.1.bn1.weight
+# - layer4.1.bn1.bias
+# - layer4.1.conv2.weight
+# - layer4.1.bn2.weight
+# - layer4.1.bn2.bias
+# - fc.weight
+# - fc.bias
