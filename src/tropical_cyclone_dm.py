@@ -488,7 +488,6 @@ class MyDigitalTyphoonAnalysis(DigitalTyphoonAnalysis):
 
         # torchgeo expects a single label
         if self.task == "classification":
-            # print(sample_df)
             sample["label"] = (
                 torch.Tensor([sample_df.iloc[-1]["wind_bins"]]).long().squeeze()
             )
@@ -499,7 +498,6 @@ class MyDigitalTyphoonAnalysis(DigitalTyphoonAnalysis):
 
         if self.transforms is not None:
             sample = self.transforms(sample)
-
 
         sample["input"] = self.resize(sample.pop("image"))
         sample["target"] = sample.pop("label")
@@ -691,30 +689,3 @@ class MyDigitalTyphoonAnalysisDataModule(NonGeoDataModule):
             if key not in ["input", "target"]:
                 new_batch[key] = value
         return new_batch
-
-
-# dm = CombinedTCDataModule(
-#     task="regression",
-#     batch_size=32,
-#     num_workers=0,
-#     tc_args={
-#         "root": "/p/project/hai_uqmethodbox/data/tropical_cyclone",
-#         "min_wind_speed": 0
-#     },
-#     dgtl_typhoon_args={
-#         "root": "/p/project/hai_uqmethodbox/data/digital_typhoon",
-#         "min_feature_value": {
-#             "wind": 0
-#         },
-#         "targets": ["wind"]
-#     }
-# )
-# dm.setup("fit")
-    
-ds = MyDigitalTyphoonAnalysis(root= "/p/project/hai_uqmethodbox/data/digital_typhoon", min_feature_value={"wind": 0}, targets=["wind"])
-
-# train_dataloader = dm.train_dataloader()
-
-# from tqdm import tqdm
-# for i, batch in tqdm(enumerate(train_dataloader)):
-#     continue

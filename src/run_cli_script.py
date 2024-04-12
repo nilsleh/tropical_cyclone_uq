@@ -17,7 +17,6 @@ from lightning.pytorch.loggers import CSVLogger, WandbLogger  # noqa: F401
 from omegaconf import OmegaConf
 
 
-
 def create_experiment_dir(config: dict[str, Any]) -> str:
     """Create experiment directory.
 
@@ -54,14 +53,12 @@ def generate_trainer(config: dict[str, Any]) -> Trainer:
             mode="offline",
         ),
     ]
-
-    track_metric = "val_loss"
     mode = "min"
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=config["experiment"]["save_dir"],
         save_top_k=1,
-        monitor=track_metric,
+        monitor="val_loss",
         mode=mode,
         every_n_epochs=1,
     )
@@ -81,7 +78,16 @@ def generate_trainer(config: dict[str, Any]) -> Trainer:
     )
 
 
-post_hoc_methods = ["SWAG", "Laplace", "ConformalQR", "CARD", "DeepEnsemble"]
+post_hoc_methods = [
+    "SWAG",
+    "Laplace",
+    "ConformalQR",
+    "CARD",
+    "DeepEnsemble",
+    "TempScaling",
+    "RAPS",
+    "TTA",
+]
 
 
 if __name__ == "__main__":
@@ -109,16 +115,16 @@ if __name__ == "__main__":
         targets = torch.stack([item["target"] for item in batch])
 
         if datamodule.task == "regression":
-            new_batch =  {
+            new_batch = {
                 "input": inputs,
                 "target": (targets[..., -1:].float() - target_mean) / target_std,
             }
         else:
-            new_batch =  {
+            new_batch = {
                 "input": inputs,
                 "target": targets.squeeze().long(),
             }
-            
+
         new_batch["storm_id"] = [x.get("storm_id") for x in batch]
         new_batch["index"] = [x.get("index") for x in batch]
         new_batch["wind_speed"] = [int(x["wind_speed"]) for x in batch]
@@ -150,7 +156,10 @@ if __name__ == "__main__":
             model = instantiate(
                 full_config.uq_method, ensemble_members=ensemble_members
             )
-        elif "ConformalQR" in full_config.uq_method["_target_"]:
+        elif (
+            "ConformalQR" in full_config.uq_method["_target_"]
+            or "RAPS" in full_config.uq_method["_target_"]
+        ):
             datamodule.setup("fit")
             model = instantiate(full_config.uq_method)
             trainer.validate(model, dataloaders=calib_loader)
@@ -161,49 +170,7 @@ if __name__ == "__main__":
         model.pred_file_name = "preds_test.csv"
         trainer.test(model, datamodule=datamodule)
     else:
-        try:
-            model = instantiate(
-                full_config.uq_method.model, pretrained=False, num_classes=1000
-            )
-            num_classes = full_config.uq_method.model.num_classes
-        except ConfigAttributeError:
-            model = instantiate(
-                full_config.uq_method.feature_extractor,
-                pretrained=False,
-                num_classes=1000,
-            )
-            num_classes = full_config.uq_method.feature_extractor.num_classes
-
-        # prev_conv1 = model.conv1.weight.data.clone()
-        
-        # print(f"Weights are loaded if the first layer is not equal anymore, so torch equal should be False, got: {torch.equal(prev_conv1, model.conv1.weight.data)}")
-        # replace last layer
-        # if "resnet18" in full_config.uq_method.model.model_name:
-        model.load_state_dict(torch.load(full_config.imagenet_ckpt))
-        model.fc = torch.nn.Linear(
-            in_features=model.fc.in_features,
-            out_features=num_classes,
-            bias=True,
-        )
-        # elif "efficientnet_b0" in full_config.uq_method.model.model_name:
-        #     model.load_state_dict(torch.load(full_config.imagenet_ckpt))
-        #     model.classifier = torch.nn.Linear(
-        #         in_features=model.classifier.in_features,
-        #         out_features=num_classes,
-        #         bias=True,
-        #     )
-        # elif "swin" in full_config.uq_method.model.model_name:
-        #     model.head.fc = torch.nn.Linear(
-        #         in_features=model.head.fc.in_features,
-        #         out_features=num_classes,
-        #         bias=True,
-        #     )
-
-        try:
-            model = instantiate(full_config.uq_method, model=model)
-        except:
-            model = instantiate(full_config.uq_method, feature_extractor=model)
-
+        model = instantiate(full_config.uq_method)
         trainer.fit(model, datamodule)
         model.pred_file_name = "preds_test.csv"
         trainer.test(ckpt_path="best", datamodule=datamodule)
