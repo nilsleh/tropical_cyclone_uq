@@ -42,7 +42,7 @@ class MySKIPPDDataModule(SKIPPDDataModule):
             # take 10 % of val_split data as calib_split
             calib_split_pct, val_split_pct = (
                 0.1 * self.val_split_pct,
-                0.89 * self.val_split_pct,
+                0.9 * self.val_split_pct,
             )
             generator = torch.Generator().manual_seed(0)
             self.train_dataset, self.val_dataset, self.calibration_dataset = (
@@ -64,3 +64,14 @@ class MySKIPPDDataModule(SKIPPDDataModule):
             collate_fn=self.collate_fn,
             shuffle=False,
         )
+
+# dm = MySKIPPDDataModule(root="/p/project/hai_uqmethodbox/data/skippd", task="nowcast", download=True)
+
+# dm.setup("fit")
+
+# train_loader = dm.train_dataloader()
+
+# batch = next(iter(train_loader))
+
+# import pdb
+# pdb.set_trace()
