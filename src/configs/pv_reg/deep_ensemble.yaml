@@ -1,0 +1,19 @@
+ensemble_members:
+  _target_: lightning_uq_box.uq_methods.MVERegression
+  model:
+    _target_: /p/project/hai_uqmethodbox/nina/tropical_cyclone_uq/skippd_model.py.Model
+    model_name: SkippdModel
+    in_chans: 48
+    num_classes: 2
+  burnin_epochs: 0
+
+uq_method:
+  _target_: lightning_uq_box.uq_methods.DeepEnsembleRegression
+  n_ensemble_members: 5
+  ensemble_members:
+  - /p/project/hai_uqmethodbox/experiment_output/reg_digital_34/cyclone_MVERegression_03-01-2024_17-36-47-588560/epoch=3-step=2016.ckpt
+  - /p/project/hai_uqmethodbox/experiment_output/reg_digital_34/cyclone_MVERegression_03-04-2024_09-48-07-358822/epoch=4-step=2520.ckpt
+  - /p/project/hai_uqmethodbox/experiment_output/reg_digital_34/cyclone_MVERegression_03-04-2024_09-48-07-358830/epoch=2-step=1512.ckpt
+  - /p/project/hai_uqmethodbox/experiment_output/reg_digital_34/cyclone_MVERegression_03-04-2024_09-48-07-358832/epoch=4-step=2520.ckpt
+  - /p/project/hai_uqmethodbox/experiment_output/reg_digital_34/cyclone_MVERegression_03-04-2024_09-48-07-358833/epoch=1-step=1008.ckpt
+  

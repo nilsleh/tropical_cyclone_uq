@@ -1,0 +1,8 @@
+datamodule:
+  _target_: skippd_datamodule.MySKIPPDDataModule
+  root: "/p/project/hai_uqmethodbox/data/tropical_cyclone"
+  task: "regression"
+  batch_size: 128
+  num_workers: 12
+  #min_feature_value:
+  #  wind: 34

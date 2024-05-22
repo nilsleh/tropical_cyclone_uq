@@ -1,0 +1,17 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.QuantileRegression
+  model:
+    _target_: /p/project/hai_uqmethodbox/nina/tropical_cyclone_uq/skippd_model.py.Model
+    model_name: SkippdModel
+    in_chans: 48
+    num_classes: 3
+  loss_fn: 
+    _target_: lightning_uq_box.uq_methods.PinballLoss
+    quantiles:
+    - 0.1
+    - 0.5
+    - 0.9
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: True
+    lr: 0.003

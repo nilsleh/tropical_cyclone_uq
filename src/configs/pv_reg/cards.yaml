@@ -1,0 +1,43 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.CARDRegression
+  cond_mean_model:
+    _target_: lightning_uq_box.uq_methods.utils.checkpoint_loader
+    model_class:
+      _target_: lightning_uq_box.uq_methods.DeterministicRegression
+      model:
+    _target_: /p/project/hai_uqmethodbox/nina/tropical_cyclone_uq/skippd_model.py.Model
+    model_name: SkippdModel
+        in_chans: 48
+        num_classes: 1
+      loss_fn:
+        _target_: torch.nn.MSELoss
+    ckpt_path: /p/project/hai_uqmethodbox/experiment_output/reg_digital_34/cyclone_DeterministicRegression_03-02-2024_09-58-17-465511/epoch=29-step=15120.ckpt
+  guidance_model:
+    _target_: lightning_uq_box.models.ConditionalGuidedConvModel
+    encoder:
+      _target_: timm.create_model
+      model_name: "resnet18"
+      in_chans: 3
+      num_classes: 1
+      pretrained: false
+    cond_guide_model:
+      _target_: lightning_uq_box.models.ConditionalGuidedLinearModel
+      n_steps: 200
+      x_dim: 1 
+      y_dim: 1 
+      n_hidden: [128, 128, 128]
+      cat_x: false
+      cat_y_pred: true
+  guidance_optim:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003
+  beta_schedule: "linear"
+  n_steps: 200
+  n_z_samples: 10
+
+trainer:
+  precision: 16-mixed
+
+datamodule:
+  batch_size: 128

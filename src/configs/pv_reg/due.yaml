@@ -1,0 +1,17 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.DUERegression
+  feature_extractor:
+    _target_: /p/project/hai_uqmethodbox/nina/tropical_cyclone_uq/skippd_model.py.Model
+    model_name: SkippdModel
+    num_classes: 10
+    in_chans: 48
+  gp_kernel: "RBF"
+  n_inducing_points: 300
+  input_size: 224
+  optimizer:
+    _target_: torch.optim.AdamW # can change optimizers here easily
+    _partial_: true
+    lr: 0.0001
+
+datamodule:
+  batch_size: 64

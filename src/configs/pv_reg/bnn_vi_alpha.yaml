@@ -1,0 +1,26 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.BNN_VI_Regression
+  model:
+    _target_: /p/project/hai_uqmethodbox/nina/tropical_cyclone_uq/skippd_model.py.Model
+    model_name: SkippdModel
+    in_chans: 48
+    num_classes: 1
+  #criterion:
+  #  _target_: torch.nn.MSELoss
+  n_mc_samples_train: 5
+  n_mc_samples_test: 30
+  prior_mu: 0.0
+  prior_sigma: 6.0
+  posterior_mu_init: 0.0
+  posterior_rho_init: -1.0
+  alpha: 1.0
+  bayesian_layer_type: reparameterization
+  stochastic_module_names:
+  - layer2.1.conv1
+  - layer2.1.conv2
+  - layer3.1.conv1
+  - layer3.1.conv2
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.001
