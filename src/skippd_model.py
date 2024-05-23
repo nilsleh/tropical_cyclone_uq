@@ -5,12 +5,10 @@ import torch.nn.functional as F
 
 class SkippdModel(torch.nn.Module):
     def __init__(self, 
-        n_feature, 
-        n_hidden, 
-        n_output,
+        input_dim= [64, 64, 24],        
         num_filters: int = 24,
-        kernel_size = [3,3],
-        pool_size = [2,2],
+        kernel_size: int = 3,
+        pool_size: int=2,
         strides: int = 2,
         dense_size: int = 1024,
         drop_rate: float = 0.4
@@ -23,36 +21,39 @@ class SkippdModel(torch.nn.Module):
         self.pool_size = pool_size
         self.dense_size = dense_size
         self.drop_rate = drop_rate 
-        self.n_hidden = n_hidden
-        self.n_output = n_output
+        self.input_dim = input_dim
 
     
-        self.conv = torch.nn.Conv2d(in_channels = self.n_hidden, out_channels=self.n_hidden, kernel_size=self.kernel_size)
+        self.conv = torch.nn.Conv2d(kernel_size=self.kernel_size)
         self.relu = torch.nn.ReLU()
         self.sequential = torch.nn.Sequential()
         self.batchnorm = torch.nn.BatchNorm2d()
 
+        #check dimensions out/in_channels
+        
         self.layer1 = torch.nn.Sequential(
-            torch.nn.Conv2d(in_channels =self.n_hidden, out_channels=self.n_output, kernel_size=self.kernel_size),
+            torch.nn.Conv2d(in_channels=input_dim, out_channels=, kernel_size=self.kernel_size),
             torch.nn.ReLU(),
-            torch.nn.MaxPool2d(kernel_size = self.kernel_size, stride=self.strides)
+            torch.nn.MaxPool2d(kernel_size = self.pool_size, stride=self.strides)
         )
 
+        #check dimensions out/in_channels
+
         self.layer2 = torch.nn.Sequential(
-            torch.nn.Conv2d(in_channels = self.n_hidden, out_channels = self.n_output, kernel_size=self.kernel_size),
+            torch.nn.Conv2d(in_channels=, out_channels=, kernel_size=self.kernel_size),
             torch.nn.BatchNorm2d(),
-            torch.nn.MaxPool2d(kernel_size = self.kernel_size, stride=self.strides)
+            torch.nn.MaxPool2d(kernel_size = self.pool_size, stride=self.strides)
         )
 
         self.layer3 = torch.nn.Sequential(
-                torch.nn.Linear(n_feature, self.dense_size)
+                torch.nn.Linear(self.dense_size)
                 torch.nn.ReLU()
         )
         
         self.dropout = torch.nn.Dropout(p = self.drop_rate)
 
         self.flatten = torch.nn.Flatten()
-        self.linear = torch.nn.Linear(n_feature, 1)
+        self.linear = torch.nn.Linear(out_features=1)
         
 
     def forward(self, x):
