@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 class SkippdModel(torch.nn.Module):
     def __init__(self, 
-        input_dim= [64, 64, 24],        
+        input_dim= 24,        
         num_filters: int = 24,
         kernel_size: int = 3,
         pool_size: int=2,
@@ -30,9 +30,9 @@ class SkippdModel(torch.nn.Module):
         self.batchnorm = torch.nn.BatchNorm2d()
 
         #check dimensions out/in_channels
-        
+
         self.layer1 = torch.nn.Sequential(
-            torch.nn.Conv2d(in_channels=input_dim, out_channels=, kernel_size=self.kernel_size),
+            torch.nn.Conv2d(in_channels=self.input_dim, out_channels=self.input_dim, kernel_size=self.kernel_size),
             torch.nn.ReLU(),
             torch.nn.MaxPool2d(kernel_size = self.pool_size, stride=self.strides)
         )
@@ -40,20 +40,25 @@ class SkippdModel(torch.nn.Module):
         #check dimensions out/in_channels
 
         self.layer2 = torch.nn.Sequential(
-            torch.nn.Conv2d(in_channels=, out_channels=, kernel_size=self.kernel_size),
+            torch.nn.Conv2d(in_channels=self.input_dim, out_channels=2*self.input_dim, kernel_size=self.kernel_size),
             torch.nn.BatchNorm2d(),
             torch.nn.MaxPool2d(kernel_size = self.pool_size, stride=self.strides)
         )
 
         self.layer3 = torch.nn.Sequential(
-                torch.nn.Linear(self.dense_size)
+                torch.nn.Linear(in_features=int(12304), out_features=int(1024))
+                torch.nn.ReLU()
+        )
+
+        self.layer4 = torch.nn.Sequential(
+                torch.nn.Linear(in_features=int(1024), out_features=int(1024))
                 torch.nn.ReLU()
         )
         
         self.dropout = torch.nn.Dropout(p = self.drop_rate)
 
         self.flatten = torch.nn.Flatten()
-        self.linear = torch.nn.Linear(out_features=1)
+        self.linear = torch.nn.Linear(in_features=int(1024), out_features=int(1))
         
 
     def forward(self, x):
@@ -67,7 +72,7 @@ class SkippdModel(torch.nn.Module):
         x = self.flatten(x)
         x = torch.cat([x,x_2])(axis=1)
         x = self.dropout(self.layer3(x))
-        x = self.dropout(self.layer3(x))
+        x = self.dropout(self.layer4(x))
         x = self.linear(x)
 
         return x
