@@ -46,12 +46,12 @@ class SkippdModel(torch.nn.Module):
         )
 
         self.layer3 = torch.nn.Sequential(
-                torch.nn.Linear(in_features=int(12304), out_features=int(1024))
+                torch.nn.Linear(in_features=int(12304), out_features=int(1024)),
                 torch.nn.ReLU()
         )
 
         self.layer4 = torch.nn.Sequential(
-                torch.nn.Linear(in_features=int(1024), out_features=int(1024))
+                torch.nn.Linear(in_features=int(1024), out_features=int(1024)),
                 torch.nn.ReLU()
         )
         
