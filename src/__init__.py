@@ -1,0 +1,1 @@
+from skippd_model import SkippdModel

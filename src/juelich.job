@@ -9,5 +9,7 @@
 #SBATCH --partition=develbooster
 #SBATCH --gres=gpu:4
 
-./launch_cyclone/launch_0.sh &
+./launch_pv_reg/launch_0.sh &
+
+wait
 
