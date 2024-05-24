@@ -5,9 +5,8 @@ uq_method:
     model_class:
       _target_: lightning_uq_box.uq_methods.DeterministicRegression
       model:
-    _target_: /p/project/hai_uqmethodbox/nina/tropical_cyclone_uq/skippd_model.py.Model
-    model_name: SkippdModel
-        in_chans: 48
+        _target_: skippd_model.SkippdModel
+        input_dim: 48
         num_classes: 1
       loss_fn:
         _target_: torch.nn.MSELoss

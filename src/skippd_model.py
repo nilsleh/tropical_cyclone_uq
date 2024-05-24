@@ -3,9 +3,14 @@ import torch.nn.functional as F
 
 #TODO: what are in_ find n_hidden/output in SKIPPD notebook, check if model translated correctly
 
+#import pdb
+
+#pdb.set_trace()
+
 class SkippdModel(torch.nn.Module):
     def __init__(self, 
-        input_dim= 24,        
+        input_dim: int = 24,  
+        num_classes: int=1,      
         num_filters: int = 24,
         kernel_size: int = 3,
         pool_size: int=2,
@@ -22,12 +27,8 @@ class SkippdModel(torch.nn.Module):
         self.dense_size = dense_size
         self.drop_rate = drop_rate 
         self.input_dim = input_dim
+        self.num_classes = num_classes
 
-    
-        self.conv = torch.nn.Conv2d(kernel_size=self.kernel_size)
-        self.relu = torch.nn.ReLU()
-        self.sequential = torch.nn.Sequential()
-        self.batchnorm = torch.nn.BatchNorm2d()
 
         #check dimensions out/in_channels
 
@@ -41,7 +42,7 @@ class SkippdModel(torch.nn.Module):
 
         self.layer2 = torch.nn.Sequential(
             torch.nn.Conv2d(in_channels=self.input_dim, out_channels=2*self.input_dim, kernel_size=self.kernel_size),
-            torch.nn.BatchNorm2d(),
+            torch.nn.BatchNorm2d(num_features = int(96)),
             torch.nn.MaxPool2d(kernel_size = self.pool_size, stride=self.strides)
         )
 
@@ -58,7 +59,7 @@ class SkippdModel(torch.nn.Module):
         self.dropout = torch.nn.Dropout(p = self.drop_rate)
 
         self.flatten = torch.nn.Flatten()
-        self.linear = torch.nn.Linear(in_features=int(1024), out_features=int(1))
+        self.linear = torch.nn.Linear(in_features=int(1024), out_features=self.num_classes)
         
 
     def forward(self, x):
@@ -70,7 +71,7 @@ class SkippdModel(torch.nn.Module):
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.flatten(x)
-        x = torch.cat([x,x_2])(axis=1)
+        x = torch.cat((x,x_2),axis=1)
         x = self.dropout(self.layer3(x))
         x = self.dropout(self.layer4(x))
         x = self.linear(x)

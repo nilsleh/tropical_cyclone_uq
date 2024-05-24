@@ -4,9 +4,9 @@ uq_method:
     _target_: lightning_uq_box.uq_methods.utils.checkpoint_loader
     model_class:
       _target_: lightning_uq_box.uq_methods.QuantileRegression
-      model:
-        _target_: /p/project/hai_uqmethodbox/nina/tropical_cyclone_uq/skippd_model.py.Model
-        model_name: SkippdModel
+    model:
+        _target_: skippd_model.SkippdModel
+        input_dim: 48
         in_chans: 48
         num_classes: 3
     ckpt_path: /p/project/hai_uqmethodbox/experiment_output/keep_reg/cyclone_QuantileRegression_12-12-2023_21-05-35-511871/epoch=1-step=316.ckpt

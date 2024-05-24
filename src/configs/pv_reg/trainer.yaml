@@ -1,5 +1,5 @@
 experiment:
-  experiment_name: "cyclone"
+  experiment_name: "pv skippd"
   exp_dir: "/p/project/hai_uqmethodbox/experiment_output/pv_hpo/"
 wandb:
   project: digital_typhoon
