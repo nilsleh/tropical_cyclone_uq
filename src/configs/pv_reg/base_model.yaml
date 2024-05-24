@@ -2,7 +2,7 @@ uq_method:
   _target_: lightning_uq_box.uq_methods.DeterministicRegression
   model:
     _target_: skippd_model.SkippdModel
-    input_dim: 48
+    in_chans: 48
     num_classes: 1
   loss_fn:
     _target_: torch.nn.MSELoss

@@ -5,6 +5,7 @@ from torch import nn
 class SkippdModel(nn.Module):
     def __init__(self, 
             in_chans: int = 48,
+            num_classes: int=1,
             num_filters: int = 24, 
             kernel_size: int = 3, 
             pool_size: int = 2, 
@@ -51,7 +52,7 @@ class SkippdModel(nn.Module):
             nn.Linear(dense_size, dense_size),
             nn.ReLU(),
             nn.Dropout(drop_rate),
-            nn.Linear(dense_size, 1)
+            nn.Linear(dense_size, num_classes)
         )
 
     def forward(self, x_in: torch.Tensor) -> torch.Tensor:
