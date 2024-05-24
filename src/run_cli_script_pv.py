@@ -15,6 +15,7 @@ from torchvision.transforms import Resize
 from omegaconf.errors import ConfigAttributeError
 from lightning.pytorch.loggers import CSVLogger, WandbLogger  # noqa: F401
 from omegaconf import OmegaConf
+from skippd_model import SkippdModel
 
 
 def create_experiment_dir(config: dict[str, Any]) -> str:
