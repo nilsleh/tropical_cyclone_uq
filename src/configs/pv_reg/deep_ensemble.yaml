@@ -2,7 +2,7 @@ ensemble_members:
   _target_: lightning_uq_box.uq_methods.MVERegression
   model:
     _target_: skippd_model.SkippdModel
-    input_dim: 48
+    in_chans: 48
     num_classes: 2
   burnin_epochs: 0
 
