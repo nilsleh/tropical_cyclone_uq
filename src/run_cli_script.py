@@ -15,6 +15,7 @@ from torchvision.transforms import Resize
 from omegaconf.errors import ConfigAttributeError
 from lightning.pytorch.loggers import CSVLogger, WandbLogger  # noqa: F401
 from omegaconf import OmegaConf
+from skippd_model import SkippdModel
 
 
 def create_experiment_dir(config: dict[str, Any]) -> str:
@@ -125,9 +126,11 @@ if __name__ == "__main__":
                 "target": targets.squeeze().long(),
             }
 
-        new_batch["storm_id"] = [x.get("storm_id") for x in batch]
-        new_batch["index"] = [x.get("index") for x in batch]
-        new_batch["wind_speed"] = [int(x["wind_speed"]) for x in batch]
+        keys = batch[0].keys()
+        for key in keys:
+            if key not in ["input", "target"]:
+                new_batch[key] = [x[key] for x in batch]
+
         return new_batch
 
     calib_loader = datamodule.calibration_dataloader()

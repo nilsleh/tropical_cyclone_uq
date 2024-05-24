@@ -63,6 +63,8 @@ class MySKIPPDDataModule(SKIPPDDataModule):
         self.target_mean = torch.Tensor([13.39907])
         self.target_std = torch.Tensor([7.67469])
 
+        self.task = "regression"
+
 
     def setup(self, stage: str) -> None:
         """Set up datasets.

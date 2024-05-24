@@ -106,8 +106,8 @@ if __name__ == "__main__":
     datamodule.aug.data_keys = ["input"]
 
     # store predictions for training and test set
-    # target_mean = datamodule.target_mean
-    # target_std = datamodule.target_std
+    target_mean = datamodule.target_mean
+    target_std = datamodule.target_std
 
     # Also store predictions for training
     def collate(batch: list[dict[str, torch.Tensor]]):
@@ -126,9 +126,11 @@ if __name__ == "__main__":
                 "target": targets.squeeze().long(),
             }
 
-        new_batch["storm_id"] = [x.get("storm_id") for x in batch]
-        new_batch["index"] = [x.get("index") for x in batch]
-        new_batch["wind_speed"] = [int(x["wind_speed"]) for x in batch]
+        keys = batch[0].keys()
+        for key in keys:
+            if key not in ["input", "target"]:
+                new_batch[key] = [x[key] for x in batch]
+
         return new_batch
 
     calib_loader = datamodule.calibration_dataloader()
