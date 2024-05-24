@@ -22,7 +22,7 @@ class MySKIPPDDataset(SKIPPD):
         sample = super().__getitem__(index)
         sample["input"] = sample["image"].float()
         if self.task == "forecast":
-            sample["target"] = sample["label"][-1]
+            sample["target"] = sample["label"][-1].unsqueeze(-1)
         else:
             sample["target"] = sample["label"]
         del sample["image"]
