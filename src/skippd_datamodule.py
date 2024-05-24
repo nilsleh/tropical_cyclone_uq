@@ -35,12 +35,6 @@ class MySKIPPDDataModule(SKIPPDDataModule):
     Adds calibration dataset.
     """
 
-    mean = torch.tensor(0)
-    std = torch.tensor(255)
-
-    target_mean = torch.Tensor([13.39907])
-    target_std = torch.Tensor([7.67469])
-
     def __init__(
         self,
         batch_size: int = 64,
@@ -62,6 +56,12 @@ class MySKIPPDDataModule(SKIPPDDataModule):
         self.aug = AugmentationSequential(
             K.Normalize(mean=self.mean, std=self.std), data_keys=['input']
         )
+
+        self.mean = torch.tensor(0)
+        self.std = torch.tensor(255)
+
+        self.target_mean = torch.Tensor([13.39907])
+        self.target_std = torch.Tensor([7.67469])
 
 
     def setup(self, stage: str) -> None:
