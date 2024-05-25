@@ -1,0 +1,13 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.DeterministicRegression
+  model:
+    _target_: timm.create_model
+    model_name: resnet18
+    in_chans: 3
+    num_classes: 1
+  loss_fn:
+    _target_: torch.nn.MSELoss
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.001

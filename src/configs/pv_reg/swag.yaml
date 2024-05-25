@@ -6,7 +6,7 @@ uq_method:
         _target_: lightning_uq_box.uq_methods.MVERegression
       model:
         _target_: skippd_model.SkippdModel
-        input_dim: 48
+        in_chans: 48
         num_classes: 2
       burnin_epochs: 0
     ckpt_path: /p/project/hai_uqmethodbox/experiment_output/reg_digital_34/cyclone_MVERegression_03-01-2024_17-36-47-588560/epoch=3-step=2016.ckpt
