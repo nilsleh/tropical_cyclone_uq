@@ -118,8 +118,8 @@ class MySKIPPDDataModule(SKIPPDDataModule):
 
         new_batch = {
             "input": input,
-            "target": (batch["target"].float() - self.target_mean)
-            / self.target_std,
+            "target": (batch["target"].float() - self.target_mean.to(batch["target"].device))
+            / self.target_std.to(batch["target"].device),
         }
     
         # add back all other keys
