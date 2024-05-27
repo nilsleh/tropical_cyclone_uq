@@ -1,5 +1,5 @@
 experiment:
-  experiment_name: "pv skippd"
+  experiment_name: "pv_skippd"
   exp_dir: "/p/project/hai_uqmethodbox/experiment_output/pv_hpo/"
 wandb:
   project: digital_typhoon
@@ -8,9 +8,9 @@ wandb:
 
 trainer:
   _target_: lightning.pytorch.Trainer
-  accelerator: cpu
-  min_epochs: 0
-  max_epochs: 5
+  accelerator: gpu
+  min_epochs: 10
+  max_epochs: 30
   log_every_n_steps: 10
   enable_progress_bar: True
 
