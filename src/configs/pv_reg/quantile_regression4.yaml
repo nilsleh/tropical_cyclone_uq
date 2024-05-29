@@ -5,12 +5,12 @@ uq_method:
     in_chans: 48
     num_classes: 3
   loss_fn: 
-    _target_: lightning_uq_box.uq_methods.PinballLoss
+    _target_: torch.nn.HuberLoss
     quantiles:
     - 0.05
     - 0.5
     - 0.95
   optimizer:
-    _target_: torch.optim.SGD
+    _target_: torch.optim.Adam
     _partial_: True
     lr: 0.0001

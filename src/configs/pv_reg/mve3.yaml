@@ -6,6 +6,6 @@ uq_method:
     num_classes: 2
   burnin_epochs: 0
   optimizer:
-    _target_: torch.optim.SGD
+    _target_: torch.optim.Adam
     _partial_: True
-    lr: 0.00005
+    lr: 0.0001

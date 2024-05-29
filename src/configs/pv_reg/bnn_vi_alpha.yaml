@@ -15,11 +15,9 @@ uq_method:
   alpha: 1.0
   bayesian_layer_type: reparameterization
   stochastic_module_names:
-  - layer2.1.conv1
-  - layer2.1.conv2
-  - layer3.1.conv1
-  - layer3.1.conv2
+  - conv1.1
+  - conv2.0
   optimizer:
     _target_: torch.optim.Adam
     _partial_: true
-    lr: 0.001
+    lr: 0.0001

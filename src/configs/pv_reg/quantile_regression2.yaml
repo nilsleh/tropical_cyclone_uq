@@ -13,4 +13,4 @@ uq_method:
   optimizer:
     _target_: torch.optim.SGD
     _partial_: True
-    lr: 0.0001
+    lr: 0.0005

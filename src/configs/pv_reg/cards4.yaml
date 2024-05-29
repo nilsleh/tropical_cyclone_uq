@@ -22,7 +22,7 @@ uq_method:
       n_steps: 200
       x_dim: 1 
       y_dim: 1 
-      n_hidden: [128, 128, 128]
+      n_hidden: [128, 128]
       cat_x: false
       cat_y_pred: true
   guidance_optim:

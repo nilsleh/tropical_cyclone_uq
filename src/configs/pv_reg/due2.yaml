@@ -5,10 +5,10 @@ uq_method:
     in_chans: 48
     num_classes: 10
   gp_kernel: "RBF"
-  n_inducing_points: 300
+  n_inducing_points: 100
   input_size: 64
   optimizer:
-    _target_: torch.optim.SGD # can change optimizers here easily
+    _target_: torch.optim.AdamW # can change optimizers here easily
     _partial_: true
     lr: 0.0001
 

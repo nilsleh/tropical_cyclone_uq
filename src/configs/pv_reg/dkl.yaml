@@ -5,11 +5,11 @@ uq_method:
     in_chans: 48
     num_classes: 10
   gp_kernel: "RBF"
-  n_inducing_points: 300
+  n_inducing_points: 100
   optimizer:
     _target_: torch.optim.AdamW
     _partial_: True
-    lr: 0.003
+    lr: 0.0001
 
 datamodule:
   batch_size: 128

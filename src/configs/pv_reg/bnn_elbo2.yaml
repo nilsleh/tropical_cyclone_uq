@@ -13,7 +13,7 @@ uq_method:
   posterior_mu_init: 0.0
   posterior_rho_init: -3.0
   bayesian_layer_type: "reparameterization"
-  beta: 200
+  beta: 100
   burnin_epochs: 0
   stochastic_module_names: # for resnet 18
   - conv1.1

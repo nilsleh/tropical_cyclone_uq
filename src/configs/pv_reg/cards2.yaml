@@ -19,7 +19,7 @@ uq_method:
       num_classes: 1
     cond_guide_model:
       _target_: lightning_uq_box.models.ConditionalGuidedLinearModel
-      n_steps: 200
+      n_steps: 100
       x_dim: 1 
       y_dim: 1 
       n_hidden: [128, 128, 128]
@@ -30,7 +30,7 @@ uq_method:
     _partial_: true
     lr: 0.0001
   beta_schedule: "linear"
-  n_steps: 200
+  n_steps: 100
   n_z_samples: 10
 
 trainer:

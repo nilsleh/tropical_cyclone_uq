@@ -12,7 +12,7 @@ uq_method:
           num_classes: 1
         loss_fn:
           _target_: torch.nn.MSELoss
-      ckpt_path: /p/project/hai_uqmethodbox/experiment_output/reg_digital_34/cyclone_DeterministicRegression_03-02-2024_09-58-17-465511/epoch=29-step=15120.ckpt
+      ckpt_path: /p/project/hai_uqmethodbox/experiment_output/pv_hpo/pv_skippd_DeterministicRegression_05-28-2024_09-56-21-539472/epoch=0-step=816.ckpt
       return_model: True
     likelihood: "regression"
     sigma_noise: 0.5

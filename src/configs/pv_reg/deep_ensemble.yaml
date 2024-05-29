@@ -10,9 +10,8 @@ uq_method:
   _target_: lightning_uq_box.uq_methods.DeepEnsembleRegression
   n_ensemble_members: 5
   ensemble_members:
-  - /p/project/hai_uqmethodbox/experiment_output/reg_digital_34/cyclone_MVERegression_03-01-2024_17-36-47-588560/epoch=3-step=2016.ckpt
-  - /p/project/hai_uqmethodbox/experiment_output/reg_digital_34/cyclone_MVERegression_03-04-2024_09-48-07-358822/epoch=4-step=2520.ckpt
-  - /p/project/hai_uqmethodbox/experiment_output/reg_digital_34/cyclone_MVERegression_03-04-2024_09-48-07-358830/epoch=2-step=1512.ckpt
-  - /p/project/hai_uqmethodbox/experiment_output/reg_digital_34/cyclone_MVERegression_03-04-2024_09-48-07-358832/epoch=4-step=2520.ckpt
-  - /p/project/hai_uqmethodbox/experiment_output/reg_digital_34/cyclone_MVERegression_03-04-2024_09-48-07-358833/epoch=1-step=1008.ckpt
-  
+  - /p/project/hai_uqmethodbox/experiment_output/pv_hpo/pv_skippd_MVERegression_05-28-2024_16-37-03-287327/epoch=5-step=4896.ckpt
+  - /p/project/hai_uqmethodbox/experiment_output/pv_hpo/pv_skippd_MVERegression_05-28-2024_16-14-54-588535/epoch=5-step=4896.ckpt
+  - /p/project/hai_uqmethodbox/experiment_output/pv_hpo/pv_skippd_MVERegression_05-28-2024_16-14-54-588529/epoch=0-step=816.ckpt
+  - /p/project/hai_uqmethodbox/experiment_output/pv_hpo/pv_skippd_MVERegression_05-28-2024_16-14-54-588520/epoch=0-step=816.ckpt
+  - /p/project/hai_uqmethodbox/experiment_output/pv_hpo/pv_skippd_MVERegression_05-28-2024_16-14-54-588514/epoch=6-step=5712.ckpt
