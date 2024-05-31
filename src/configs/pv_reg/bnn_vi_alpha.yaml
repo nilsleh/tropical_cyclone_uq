@@ -2,7 +2,7 @@ uq_method:
   _target_: lightning_uq_box.uq_methods.BNN_VI_Regression
   model:
     _target_: skippd_model.SkippdModel
-    in_chans: 48
+    in_chans: 3
     num_classes: 1
   #criterion:
   #  _target_: torch.nn.MSELoss
@@ -12,7 +12,7 @@ uq_method:
   prior_sigma: 6.0
   posterior_mu_init: 0.0
   posterior_rho_init: -1.0
-  alpha: 1.0
+  alpha: 0.9
   bayesian_layer_type: reparameterization
   stochastic_module_names:
   - conv1.1

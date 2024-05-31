@@ -2,7 +2,7 @@ uq_method:
   _target_: lightning_uq_box.uq_methods.DUERegression
   feature_extractor:
     _target_: skippd_model.SkippdModel
-    in_chans: 48
+    in_chans: 3
     num_classes: 20
   gp_kernel: "RBF"
   n_inducing_points: 200

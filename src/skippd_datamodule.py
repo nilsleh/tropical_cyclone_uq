@@ -20,11 +20,11 @@ class MySKIPPDDataset(SKIPPD):
             A dictionary containing the data and label.
         """
         sample = super().__getitem__(index)
-        sample["input"] = sample["image"].float()
+        sample["input"] = sample["image"].float() / 255.0
         if self.task == "forecast":
             sample["target"] = sample["label"][-1].unsqueeze(-1)
         else:
-            sample["target"] = sample["label"]
+            sample["target"] = sample["label"].unsqueeze(-1)
         del sample["image"]
         del sample["label"]
         return sample
@@ -53,12 +53,13 @@ class MySKIPPDDataModule(SKIPPDDataModule):
         """
         super().__init__(batch_size, num_workers, val_split_pct, **kwargs)
 
-        self.aug = AugmentationSequential(
-            K.Normalize(mean=self.mean, std=self.std), data_keys=['input']
-        )
+        # input normalizatoin is done in dataset itself
+        # self.mean = torch.tensor(0)
+        # self.std = torch.tensor(255)
 
-        self.mean = torch.tensor(0)
-        self.std = torch.tensor(255)
+        # self.aug = AugmentationSequential(
+        #     K.Normalize(mean=self.mean, std=self.std), data_keys=['input']
+        # )
 
         self.target_mean = torch.Tensor([13.39907])
         self.target_std = torch.Tensor([7.67469])
@@ -113,11 +114,8 @@ class MySKIPPDDataModule(SKIPPDDataModule):
         Returns:
             A batch of data.
         """
-        # normalization here
-        input = self.aug({"input": batch["input"].float()})["input"]
-
         new_batch = {
-            "input": input,
+            "input": batch["input"].float(),
             "target": (batch["target"].float() - self.target_mean.to(batch["target"].device))
             / self.target_std.to(batch["target"].device),
         }
@@ -148,9 +146,11 @@ class MySKIPPDDataModule(SKIPPDDataModule):
 
 # dm.setup("fit")
 
-# train_loader = dm.train_dataloader()
+# train_loader = dm.test_dataloader()
 
 # batch = next(iter(train_loader))
+
+# after = dm.on_after_batch_transfer(batch, 0)
 
 # import pdb
 # pdb.set_trace()

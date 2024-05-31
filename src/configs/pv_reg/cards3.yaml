@@ -6,7 +6,7 @@ uq_method:
       _target_: lightning_uq_box.uq_methods.DeterministicRegression
       model:
         _target_: skippd_model.SkippdModel
-        in_chans: 48
+        in_chans: 3
         num_classes: 1
       loss_fn:
         _target_: torch.nn.MSELoss
@@ -15,7 +15,7 @@ uq_method:
     _target_: lightning_uq_box.models.ConditionalGuidedConvModel
     encoder:
       _target_: skippd_model.SkippdModel
-      in_chans: 48
+      in_chans: 3
       num_classes: 1
     cond_guide_model:
       _target_: lightning_uq_box.models.ConditionalGuidedLinearModel

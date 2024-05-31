@@ -6,7 +6,7 @@ uq_method:
       _target_: lightning_uq_box.uq_methods.QuantileRegression
       model:
         _target_: skippd_model.SkippdModel
-        in_chans: 48
+        in_chans: 3
         num_classes: 3
     ckpt_path: /p/project/hai_uqmethodbox/experiment_output/pv_hpo/pv_skippd_QuantileRegression_05-28-2024_09-54-41-628380/epoch=0-step=816.ckpt
     return_model: False

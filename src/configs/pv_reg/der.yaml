@@ -2,7 +2,7 @@ uq_method:
   _target_: lightning_uq_box.uq_methods.DER
   model:
     _target_: skippd_model.SkippdModel
-    in_chans: 48
+    in_chans: 3
     num_classes: 4 # DER outputs
   optimizer:
     _target_: torch.optim.Adam

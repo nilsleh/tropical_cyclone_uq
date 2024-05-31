@@ -2,7 +2,7 @@ uq_method:
   _target_: lightning_uq_box.uq_methods.MVERegression
   model:
     _target_: skippd_model.SkippdModel
-    in_chans: 48
+    in_chans: 3
     num_classes: 2
   burnin_epochs: 0
   optimizer:

@@ -2,7 +2,7 @@ uq_method:
   _target_: lightning_uq_box.uq_methods.QuantileRegression
   model:
     _target_: skippd_model.SkippdModel
-    in_chans: 48
+    in_chans: 3
     num_classes: 3
   loss_fn: 
     _target_: lightning_uq_box.uq_methods.PinballLoss
